@@ -138,6 +138,57 @@ Open [http://localhost:3000](http://localhost:3000) and enter the arena!
 
 ---
 
+## 🔄 How It Works
+
+The battle system orchestrates multiple AI services in real-time to create dynamic, personalized roasts:
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant API as FastAPI
+    participant F as Fighter LLM
+    participant J as Judge AI
+    participant V as Voice Service
+
+    Note over FE: Turn starts
+    FE->>FE: Show "THINKING..."
+    
+    FE->>API: POST /match/generate
+    Note right of API: Includes: persona, attack_vectors, history
+    
+    API->>F: Generate roast (20 words max)
+    Note right of F: Anti-repetition: exhausted_topics
+    F-->>API: {text: "roast..."}
+    
+    par Generate Audio
+        API->>V: generate_audio(text, voice_id)
+        V->>ElevenLabs: TTS (Turbo v2.5)
+        ElevenLabs-->>V: MP3 base64
+        V-->>API: data:audio/mpeg;base64,...
+    end
+    
+    API-->>FE: {text, audio_url, duration_ms}
+    
+    FE->>FE: Stream text (4s typewriter)
+    FE->>FE: Play TTS audio
+    
+    FE->>FE: Show "AI JUDGE IS DECIDING..."
+    FE->>API: POST /match/judge
+    
+    API->>J: Judge roast (GPT-5 Mini)
+    Note right of J: Score: Specificity, Creativity, Accuracy
+    Note right of J: Check for repetition → 0 damage
+    J-->>API: {damage, specificity, creativity, accuracy}
+    
+    API-->>FE: JudgeResponse
+    
+    FE->>FE: Show verdict overlay
+    FE->>FE: Apply damage (with speed bonus)
+    FE->>FE: Check health → Game Over or Next Turn
+```
+
+---
+
 ## 🎮 Gameplay Mechanics
 
 ### Damage System
