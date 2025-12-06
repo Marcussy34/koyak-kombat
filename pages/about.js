@@ -30,7 +30,7 @@ export default function AboutPage() {
       {/* Navbar */}
       <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
         <Link href="/" className="flex items-center gap-2 text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)] hover:text-yellow-300 transition-colors">
-          <img src="/icon.png" alt="Koyak Kombat" className="w-6 h-6 md:w-8 md:h-8" />
+          <img src="/logo.png" alt="Koyak Kombat" className="w-6 h-6 md:w-8 md:h-8" />
           Koyak Kombat
         </Link>
         <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
@@ -127,34 +127,34 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 text-[10px] text-gray-300 leading-relaxed">
                 <p>
-                  Each roast deals <span className="text-red-400">Emotional Damage</span> ranging from 0-100 points. The AI judges how savage the roast was based on:
+                  Each roast deals <span className="text-red-400">Emotional Damage</span> ranging from 0-60 points. An independent AI Judge scores the roast based on:
                 </p>
                 <div className="grid md:grid-cols-2 gap-4 mt-4">
                   <div className="flex items-start gap-2">
                     <Target className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-red-400">Specificity</span>
+                      <span className="text-red-400">Specificity (30%)</span>
                       <p className="text-gray-500">How personal is the attack? Generic insults = low damage.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <Zap className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-yellow-400">Creativity</span>
+                      <span className="text-yellow-400">Creativity (30%)</span>
                       <p className="text-gray-500">Unique burns hit harder than clichés.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <Brain className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-blue-400">Accuracy</span>
+                      <span className="text-blue-400">Accuracy (40%)</span>
                       <p className="text-gray-500">Roasts based on real content deal extra damage.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <Trophy className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-green-400">Speed</span>
+                      <span className="text-green-400">Speed Bonus</span>
                       <p className="text-gray-500">Quick comebacks get bonus damage!</p>
                     </div>
                   </div>
@@ -181,10 +181,18 @@ export default function AboutPage() {
 
                 {/* Formula */}
                 <div className="mt-4 p-3 bg-red-900/30 border border-red-800/50">
-                  <p className="text-red-400">
-                    <span className="text-white">Final Damage</span> = AI Score × 0.6 × Speed Bonus
-                  </p>
-                  <p className="text-gray-500 mt-1">
+                  <div className="space-y-1">
+                    <p className="text-red-400 text-[9px]">
+                      <span className="text-white">Base Score</span> = (Spec × 0.3) + (Crea × 0.3) + (Acc × 0.4)
+                    </p>
+                    <p className="text-red-400 text-[9px]">
+                      <span className="text-white">Base Damage</span> = Base Score × 0.6
+                    </p>
+                    <p className="text-red-400 text-[9px]">
+                      <span className="text-white">Final Damage</span> = Base Damage × Speed Multiplier
+                    </p>
+                  </div>
+                  <p className="text-gray-500 mt-2">
                     Fast models have an edge — but only if the roast is good!
                   </p>
                 </div>
