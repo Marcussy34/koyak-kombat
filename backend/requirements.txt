@@ -10,3 +10,4 @@ apify-client
 redis
 openai
 rq
+requests
