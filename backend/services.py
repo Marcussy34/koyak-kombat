@@ -726,43 +726,64 @@ class LLMService:
         Generates a roast based on the persona and conversation history.
         Returns JSON: { "text": "..." } - NO damage scoring (Judge AI handles that)
         
-        ANTI-REPETITION SYSTEM:
-        - Extracts topics/keywords from previous roasts
-        - Passes "EXHAUSTED TOPICS" list to the AI
+        ANTI-REPETITION SYSTEM (v2 - More Aggressive):
+        - Passes FULL previous roasts as explicit "DO NOT COPY" examples
+        - Extracts 2-word phrases to catch concepts like "vintage fit", "mum won't"
+        - Uses higher temperature (0.9) for more creative variety
         - Forces AI to attack from a completely fresh angle each turn
         """
         # Use full history to prevent repetition
         history_text = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in chat_history])
         
-        # === ANTI-REPETITION: Extract topics already attacked ===
-        # This helps the AI know what angles have been "used up"
-        exhausted_topics = []
+        # === ANTI-REPETITION v2: Extract previous roasts as banned examples ===
+        # Get all previous roasts as explicit "DO NOT REPEAT" examples
+        previous_roasts = [msg['text'] for msg in chat_history if msg.get('text')]
+        banned_roasts_text = "\n".join([f"- \"{roast}\"" for roast in previous_roasts]) if previous_roasts else "None yet"
+        
+        # Extract 2-word phrases to catch concepts like "vintage fit", "mum won't let"
+        # This is more effective than single words for preventing similar attacks
+        exhausted_phrases = []
         for msg in chat_history:
             text = msg.get('text', '').lower()
-            # Extract key nouns/topics (simple keyword extraction)
-            # These become "banned" topics for future roasts
-            # Lowered to 3 chars to catch words like "pic", "fit", etc.
+            words = text.split()
+            # Extract 2-word phrases (bigrams)
+            for i in range(len(words) - 1):
+                phrase = f"{words[i]} {words[i+1]}"
+                # Clean punctuation
+                phrase = phrase.strip('.,!?"\'()[]')
+                if len(phrase) > 5:  # Skip tiny phrases
+                    exhausted_phrases.append(phrase)
+        
+        # Also extract single keywords as backup
+        exhausted_words = []
+        for msg in chat_history:
+            text = msg.get('text', '').lower()
             keywords = [
                 word.strip('.,!?"\'') 
                 for word in text.split() 
-                if len(word) > 3 and word.isalpha()
+                if len(word) > 4 and word.isalpha()
             ]
-            exhausted_topics.extend(keywords[:10])  # Increased to 10 keywords per turn
+            exhausted_words.extend(keywords)
         
         # Dedupe and format
-        exhausted_topics = list(set(exhausted_topics))[:30]  # Increased to 30 to catch more concepts
-        exhausted_text = ", ".join(exhausted_topics) if exhausted_topics else "None yet"
+        exhausted_phrases = list(set(exhausted_phrases))[:20]
+        exhausted_words = list(set(exhausted_words))[:30]
+        
+        banned_concepts = ", ".join(exhausted_phrases + exhausted_words) if (exhausted_phrases or exhausted_words) else "None yet"
         
         # Calculate turn number for variety nudges
         turn_number = len([m for m in chat_history if m.get('speaker') == opponent_name]) + 1
         
-        # Variety prompts based on turn number
+        # Variety prompts based on turn number - cycle through DIFFERENT attack angles
         variety_hints = [
-            "Attack their APPEARANCE or LIFESTYLE.",
-            "Attack their RELATIONSHIPS or SOCIAL STATUS.",
-            "Attack their CAREER or ACHIEVEMENTS (or lack thereof).",
+            "Attack their APPEARANCE or FASHION SENSE.",
+            "Attack their RELATIONSHIPS or DATING LIFE.",
+            "Attack their CAREER or JOB (or lack thereof).",
             "Attack their PERSONALITY FLAWS or HYPOCRISY.",
-            "Attack their ONLINE PRESENCE or CRINGEY CONTENT.",
+            "Attack their CRINGE ONLINE CONTENT or FOLLOWER COUNT.",
+            "Attack their EDUCATION or INTELLIGENCE.",
+            "Attack their HOBBIES or INTERESTS (make them sound lame).",
+            "Attack their FAMILY or UPBRINGING.",
         ]
         current_hint = variety_hints[(turn_number - 1) % len(variety_hints)]
         
@@ -770,25 +791,30 @@ class LLMService:
         {system_prompt}
         
         CONTEXT:
-        You are in a high-stakes roast battle against {opponent_name}.
+        You are in a roast battle against {opponent_name}.
         This is YOUR TURN #{turn_number}.
         
-        MATCH HISTORY:
-        {history_text if history_text else "No previous roasts yet."}
+        ═══════════════════════════════════════════════════════
+        ⛔⛔⛔ CRITICAL: DO NOT REPEAT THESE ROASTS ⛔⛔⛔
+        {banned_roasts_text}
         
-        ⛔ BANNED WORDS/CONCEPTS - DO NOT USE THESE ⛔
-        {exhausted_text}
-        If you use ANY of these words or similar concepts, your roast scores 0 damage.
+        If your roast is similar to ANY of the above, you LOSE.
+        You MUST attack a COMPLETELY DIFFERENT topic.
+        ═══════════════════════════════════════════════════════
         
-        === ATTACK DIRECTION FOR THIS TURN ===
+        BANNED WORDS/PHRASES (automatic 0 damage if used):
+        {banned_concepts}
+        
+        === YOUR ATTACK ANGLE FOR THIS TURN ===
         {current_hint}
+        Pick something from their profile that HASN'T been attacked yet.
         
-        STRICT RULES:
-        1. Use your persona's slang and style.
-        2. Attack a COMPLETELY DIFFERENT topic than previous roasts.
-        3. **MAX 20 WORDS**. Short and brutal.
-        4. **BE SAVAGE**. Make it hurt.
-        5. **BE FUNNY**. Irony, exaggeration, or unexpected twist.
+        RULES:
+        1. Use your persona's slang and speech style.
+        2. Attack something NEVER mentioned in previous roasts.
+        3. **MAX 20 WORDS**. Punchy and brutal.
+        4. **BE SAVAGE**. Hit where it hurts.
+        5. **BE CLEVER**. Wordplay, irony, or unexpected twist.
         6. NO EMOJIS.
         
         Return JSON ONLY:
@@ -801,13 +827,15 @@ class LLMService:
         target_model = model_name if model_name else self.model
         
         try:
+            # Higher temperature (0.9) for more creative variety
             response = self.client.chat.completions.create(
                 model=target_model,
                 messages=[
-                    {"role": "system", "content": "You are a roast battle expert. Output JSON only."},
+                    {"role": "system", "content": "You are a savage roast battle expert. Output JSON only. NEVER repeat previous attacks."},
                     {"role": "user", "content": prompt}
                 ],
-                response_format={ "type": "json_object" }
+                response_format={ "type": "json_object" },
+                temperature=0.9  # Higher temp for more variety
             )
             content = response.choices[0].message.content
             print(f"LLM Raw Response: {content}")

@@ -102,7 +102,7 @@ export default function CharacterSelect() {
     
     // Extract usernames from URLs for display
     const extractUsername = (url) => {
-      const match = url.match(/(?:instagram\.com|facebook\.com|twitter\.com|x\.com)\/([^/?]+)/);
+      const match = url.match(/(?:instagram\.com|facebook\.com|twitter\.com|x\.com|linkedin\.com(?:\/in)?)\/([^/?]+)/);
       return match ? match[1] : url;
     };
     
@@ -111,33 +111,46 @@ export default function CharacterSelect() {
     const igUrls = allUrls.filter(url => url.includes('instagram.com'));
     const fbUrls = allUrls.filter(url => url.includes('facebook.com'));
     const twUrls = allUrls.filter(url => url.includes('twitter.com') || url.includes('x.com'));
+    const liUrls = allUrls.filter(url => url.includes('linkedin.com'));
     
     const igUsernames = igUrls.map(extractUsername);
     const fbUsernames = fbUrls.map(extractUsername);
     const twUsernames = twUrls.map(extractUsername);
+    const liUsernames = liUrls.map(extractUsername);
     
     // Count actors
     let actorCount = 0;
     if (igUsernames.length > 0) actorCount += 1;
     if (fbUsernames.length > 0) actorCount += 2;
     if (twUsernames.length > 0) actorCount += 1;
+    if (liUsernames.length > 0) actorCount += 1; // LinkedIn uses 1 actor (parallel calls)
     
     try {
       // Step 1: Routing
       addLoadingStep('[Batch] Routing URLs to platforms...', 5);
       await new Promise(r => setTimeout(r, 400));
 
+      // Helper to format lists
+      const formatList = (list) => {
+        if (list.length <= 2) return list.join(', ');
+        return `${list.slice(0, 2).join(', ')} +${list.length - 2} more`;
+      };
+
       // Step 2: Show detected usernames
       if (igUsernames.length > 0) {
-        addLoadingStep(`[Batch] Instagram usernames: ${igUsernames.join(', ')}`, 10);
+        addLoadingStep(`[Batch] Instagram usernames: ${formatList(igUsernames)}`, 10);
         await new Promise(r => setTimeout(r, 300));
       }
       if (fbUsernames.length > 0) {
-        addLoadingStep(`[Batch] Facebook usernames: ${fbUsernames.join(', ')}`, 15);
+        addLoadingStep(`[Batch] Facebook usernames: ${formatList(fbUsernames)}`, 15);
         await new Promise(r => setTimeout(r, 300));
       }
       if (twUsernames.length > 0) {
-        addLoadingStep(`[Batch] Twitter usernames: ${twUsernames.join(', ')}`, 15);
+        addLoadingStep(`[Batch] Twitter usernames: ${formatList(twUsernames)}`, 15);
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (liUsernames.length > 0) {
+        addLoadingStep(`[Batch] LinkedIn profiles: ${formatList(liUsernames)}`, 15);
         await new Promise(r => setTimeout(r, 300));
       }
 
@@ -169,6 +182,15 @@ export default function CharacterSelect() {
         addLoadingStep(`[Twitter] Scraping ${twUsernames.length} profile${twUsernames.length > 1 ? 's' : ''}...`, progress);
         await new Promise(r => setTimeout(r, 2500));
         addLoadingStep(`[Twitter] Completed ✓`, progress + 10);
+        progress += 12;
+      }
+
+      if (liUsernames.length > 0) {
+        addLoadingStep(`[LinkedIn] Scraping ${liUsernames.length} profile${liUsernames.length > 1 ? 's' : ''}...`, progress);
+        await new Promise(r => setTimeout(r, 2000));
+        addLoadingStep(`[LinkedIn] Fetching recent posts...`, progress + 5);
+        await new Promise(r => setTimeout(r, 2000));
+        addLoadingStep(`[LinkedIn] Completed ✓`, progress + 10);
         progress += 12;
       }
       
@@ -441,7 +463,7 @@ export default function CharacterSelect() {
               <div className="text-[8px] text-gray-500 uppercase mb-2">Activity Log</div>
               {loadingSteps.map((s, i) => (
                 <div key={i} className="flex gap-2 text-[9px] text-gray-400 mb-1">
-                  <span className="text-gray-600">[{s.time}]</span>
+                  <span className="text-gray-600 shrink-0">[{s.time}]</span>
                   <span className={i === loadingSteps.length - 1 ? 'text-yellow-400' : ''}>{s.step}</span>
                 </div>
               ))}
@@ -550,14 +572,14 @@ export default function CharacterSelect() {
                   <div className="space-y-3 mb-4">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
-                      <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
+                      <span className="text-[8px] text-gray-600">Twitter • Insta • Facebook • LinkedIn</span>
                     </div>
                     
                     {fighter1Urls.map((url, index) => (
                       <div key={index} className="flex gap-2">
                         <input 
                           type="text"
-                          placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
+                          placeholder={index === 0 ? "Social profile URL..." : "Add another profile..."}
                           className="flex-1 px-3 py-2 bg-black/70 border-2 border-red-800/50 text-red-200 text-[10px] placeholder-red-900/50 focus:border-red-500 focus:outline-none transition-colors"
                           value={url}
                           onChange={(e) => updateUrl(setFighter1Urls, fighter1Urls, index, e.target.value)}
@@ -627,14 +649,14 @@ export default function CharacterSelect() {
                   <div className="space-y-3 mb-4">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
-                      <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
+                      <span className="text-[8px] text-gray-600">Twitter • Insta • Facebook • LinkedIn</span>
                     </div>
                     
                     {fighter2Urls.map((url, index) => (
                       <div key={index} className="flex gap-2">
                         <input 
                           type="text"
-                          placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
+                          placeholder={index === 0 ? "Social profile URL..." : "Add another profile..."}
                           className="flex-1 px-3 py-2 bg-black/70 border-2 border-blue-800/50 text-blue-200 text-[10px] placeholder-blue-900/50 focus:border-blue-500 focus:outline-none transition-colors"
                           value={url}
                           onChange={(e) => updateUrl(setFighter2Urls, fighter2Urls, index, e.target.value)}
