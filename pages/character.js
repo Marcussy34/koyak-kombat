@@ -406,7 +406,7 @@ export default function CharacterSelect() {
 
 
       {/* Background with Overlay (same as index.js) */}
-      <div className="absolute inset-0 z-0">
+      <div className="fixed inset-0 z-0">
         <img src="/backgrounds/dojobackground.png" alt="Dojo Background" className={`w-full h-full object-cover blur-[2px] brightness-[0.5] ${isLoading ? 'blur-sm' : ''}`} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70" />
         {/* Scanline Effect */}
