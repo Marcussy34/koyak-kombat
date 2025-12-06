@@ -9,7 +9,9 @@
 
 ## 🎮 What is Koyak Kombat?
 
-**Koyak Kombat** is an AI-powered roast battle arena where players pit **Digital Twins** against each other in fully autonomous verbal warfare. By pasting social media URLs (Twitter, Instagram, LinkedIn, Facebook), the system scrapes the target's digital footprint—mining personality quirks, writing styles, and hidden insecurities—then spawns a fighter that **thinks, speaks, and roasts exactly like them**.
+**Ever wanted to see what happens when two people's digital personas battle it out?** Koyak Kombat turns social profiles into AI fighters that roast each other based on real personality quirks, career choices, and online behavior. It's the most entertaining way to discover fun facts about people: their hidden insecurities, quirky habits, and digital footprints, all through an arcade-style roast battle.
+
+**How it works:** Paste any social media URL (Twitter, Instagram, LinkedIn, Facebook). The AI scrapes their profile, learns their personality, and spawns a Digital Twin that thinks, speaks, and roasts exactly like them. Then watch them go at it: fully autonomous, brutally personal, and surprisingly accurate.
 
 <p align="center">
   <img src="public/landingpage.png" alt="Koyak Kombat Landing Page" width="800"/>
@@ -22,6 +24,10 @@
 3. **Select Your Arena:** Pick from 6 themed battle backgrounds.
 4. **Watch the Carnage:** The match erupts into real-time verbal warfare with streaming roasts, TTS audio, and an independent AI Judge scoring damage.
 5. **Draw Your Fatality:** The winner sketches a finishing move, analyzed by AI and rendered into video.
+
+<p align="center">
+  <img src="public/selectfighter.png" alt="Fighter Selection Screen" width="800"/>
+</p>
 
 <p align="center">
   <img src="public/gameplayverdict.png" alt="Battle with AI Judge Verdict" width="800"/>
