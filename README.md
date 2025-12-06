@@ -29,6 +29,22 @@
 
 ---
 
+## 🌐 Live Deployment
+
+**Frontend**: [koyak-kombat.vercel.app](https://koyak-kombat.vercel.app)  
+**Backend**: [koyak-kombat-backend.onrender.com](https://koyak-kombat-backend.onrender.com)
+
+### Known Limitations
+
+| Limitation | Impact |
+| :--- | :--- |
+| **Voice Synthesis** ❌ | ElevenLabs disabled (free tier abuse detection due to calling it from deployed instance e.g. Vercel). Battles run without audio. |
+| **Finishing Move Canvas** ⚠️ | tldraw requires license for deployment. Only works when run locally|
+| **Cold Start Delay** ⚠️ | Render free tier spins down. First request takes ~50 seconds. |
+| **Performance** ⚠️ | Free instance cannot handle multiple concurrent users. Slow under load. |
+
+---
+
 ## 🚀 Features
 
 | Feature | Status |
@@ -50,7 +66,6 @@
 | **Battle Screenshot Capture** (For video generation) | ✅ |
 | **Batch Fighter Creation** (Parallel scraping for both fighters) | ✅ |
 | **Finishing Move Video** (Veo 3 generation) | ✅ |
-| **Match Persistence** | 🔮 |
 
 ---
 
