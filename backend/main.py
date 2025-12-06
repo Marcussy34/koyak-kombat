@@ -120,21 +120,43 @@ async def create_fighter(fighter: FighterCreate):
     routed = route_urls(fighter.urls)
     print(f"Routed platforms: {list(routed.keys())}")
     
-    # 2. Scrape each platform
+    # 2. Scrape each platform in PARALLEL for efficiency
+    # Uses ThreadPoolExecutor to run all scraping tasks concurrently
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
     platform_data = {}
     detected_name = "Digital Twin"
     
+    # Build list of scrape tasks: [(platform, username), ...]
+    scrape_tasks = []
     for platform, platform_infos in routed.items():
         if platform == "unknown":
             continue
-        
         for info in platform_infos:
-            data = scraper_service.scrape_platform(platform, info.username)
-            if data:
-                platform_data[platform] = data
-                # Use first username as fallback name
-                if detected_name == "Digital Twin":
-                    detected_name = f"@{info.username}"
+            scrape_tasks.append((platform, info.username))
+    
+    print(f"[Scraper] Starting parallel scraping for {len(scrape_tasks)} platform(s)...")
+    
+    # Execute all scrapes in parallel
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Submit all tasks
+        future_to_task = {
+            executor.submit(scraper_service.scrape_platform, platform, username): (platform, username)
+            for platform, username in scrape_tasks
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_task):
+            platform, username = future_to_task[future]
+            try:
+                data = future.result()
+                if data:
+                    platform_data[platform] = data
+                    # Use first username as fallback name
+                    if detected_name == "Digital Twin":
+                        detected_name = f"@{username}"
+            except Exception as e:
+                print(f"[Scraper] Error scraping {platform}/@{username}: {e}")
     
     # 3. Aggregate raw outputs into unified context block
     aggregated_context = ProfileAggregator.aggregate(platform_data)
