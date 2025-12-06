@@ -43,13 +43,27 @@ export default async function handler(req, res) {
 
   try {
     // Set up authentication with service account
-    const keyPath = path.join(process.cwd(), 'vertex-ai-key.json');
+    // Priority: 1) GOOGLE_CREDENTIALS_JSON env var (for Vercel)
+    //           2) Local file vertex-ai-key.json (for development)
+    let auth;
     
-    // Create auth client
-    const auth = new GoogleAuth({
-      keyFilename: keyPath,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      // Parse credentials from environment variable (Vercel deployment)
+      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+      auth = new GoogleAuth({
+        credentials: credentials,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+      console.log('[GenerateFinishingVideo] Using credentials from GOOGLE_CREDENTIALS_JSON env var');
+    } else {
+      // Fallback to local file (local development)
+      const keyPath = path.join(process.cwd(), 'vertex-ai-key.json');
+      auth = new GoogleAuth({
+        keyFilename: keyPath,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+      console.log('[GenerateFinishingVideo] Using credentials from local file');
+    }
     
     const authClient = await auth.getClient();
     const accessToken = await authClient.getAccessToken();
