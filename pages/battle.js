@@ -48,10 +48,11 @@ export default function Battle() {
   const [isReady, setIsReady] = useState(false);
 
   const [round, setRound] = useState(1);
+  const roundRef = useRef(1); // Track round to avoid stale closure
   const [roundOverlay, setRoundOverlay] = useState(null); // "ROUND 1", "ROUND 2", etc.
   const [koTarget, setKoTarget] = useState(null); // 'fighter1' or 'fighter2'
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isJudging, setIsJudging] = useState(false); // New state for Judge AI thinking
+  const [isJudging, setIsJudging] = useState(false); // New state for AI Judge thinking
   const [judgeDecision, setJudgeDecision] = useState(null); // New state for Judge Decision overlay
   const [highlightedFighter, setHighlightedFighter] = useState(null); // 'fighter1' | 'fighter2' | null
   const [showLogs, setShowLogs] = useState(false); // New state for Chat Logs overlay
@@ -253,9 +254,9 @@ export default function Battle() {
 
         setChatHistory(prev => [...prev, tempMsg]);
 
-        // STREAM THE ROAST TEXT (2 seconds total) - Smooth RAF-based streaming
+        // STREAM THE ROAST TEXT (4 seconds total) - Smooth RAF-based streaming
         const fullText = genResponse.text;
-        const streamDuration = 2000; // Always 2 seconds
+        const streamDuration = 4000; // 4 seconds for better sync with audio
         
         setDisplayedText('');
         setHighlightedFighter(currentTurn); // Start animation
@@ -339,9 +340,15 @@ export default function Battle() {
             const baseDamage = Math.floor(judgeResponse.damage * 0.6);
             const dealtDamage = Math.floor(baseDamage * speedMultiplier);
 
-            // SHOW DECISION OVERLAY
-            setJudgeDecision({ damage: dealtDamage, isCritical: judgeResponse.is_critical });
-            await new Promise(r => setTimeout(r, 1200)); // Show verdict for 1.2s
+            // SHOW DECISION OVERLAY with scoring breakdown
+            setJudgeDecision({ 
+              damage: dealtDamage, 
+              isCritical: judgeResponse.is_critical,
+              specificity: judgeResponse.specificity,
+              creativity: judgeResponse.creativity,
+              accuracy: judgeResponse.accuracy
+            });
+            await new Promise(r => setTimeout(r, 1800)); // Show verdict for 1.8s (more time to read stats)
             setJudgeDecision(null);
 
             // Update the last message with damage stats
@@ -404,9 +411,10 @@ export default function Battle() {
             // Switch Turn
             const nextTurn = currentTurn === 'fighter1' ? 'fighter2' : 'fighter1';
             
-            // Check for New Round
+            // Check for New Round - use ref to avoid stale closure
             if (nextTurn === startingFighterRef.current) {
-                const nextRound = round + 1;
+                const nextRound = roundRef.current + 1;
+                roundRef.current = nextRound;
                 setRound(nextRound);
                 setRoundOverlay(`ROUND ${nextRound}`);
                 await new Promise(r => setTimeout(r, 2000));
@@ -654,7 +662,7 @@ export default function Battle() {
           <div className="bg-black/80 backdrop-blur-md p-6 rounded-xl border-2 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.4)] animate-pulse flex flex-col items-center transform scale-75 md:scale-100">
             <Scale className="w-12 h-12 text-yellow-500 mb-2" />
             <div className="text-xl md:text-2xl text-yellow-400 font-bold uppercase tracking-widest text-center">
-              JUDGE AI<br/>IS DECIDING...
+              AI JUDGE<br/>IS DECIDING...
             </div>
             <div className="mt-3 flex gap-2">
                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
@@ -669,12 +677,30 @@ export default function Battle() {
       {judgeDecision && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-in zoom-in duration-300">
           <div className="bg-black/90 backdrop-blur-xl p-8 rounded-2xl border-4 border-white shadow-[0_0_50px_rgba(255,255,255,0.3)] flex flex-col items-center">
-            <Gavel className="w-16 h-16 text-yellow-500 mb-4" />
-            <div className="text-2xl text-white font-bold uppercase tracking-widest mb-2">VERDICT</div>
-            <div className="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">
+            <Gavel className="w-12 h-12 text-yellow-500 mb-3" />
+            <div className="text-xl text-white font-bold uppercase tracking-widest mb-2">VERDICT</div>
+            <div className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]">
               {judgeDecision.damage}
             </div>
-            <div className="text-sm text-gray-400 mt-2 uppercase tracking-wider">EMOTIONAL DAMAGE</div>
+            <div className="text-xs text-gray-400 mt-1 uppercase tracking-wider">EMOTIONAL DAMAGE</div>
+            
+            {/* Scoring Breakdown */}
+            <div className="mt-4 pt-4 border-t border-gray-700 w-full">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-bold text-blue-400">{judgeDecision.specificity || 0}</div>
+                  <div className="text-[8px] text-gray-500 uppercase">Specific</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-purple-400">{judgeDecision.creativity || 0}</div>
+                  <div className="text-[8px] text-gray-500 uppercase">Creative</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-green-400">{judgeDecision.accuracy || 0}</div>
+                  <div className="text-[8px] text-gray-500 uppercase">Accurate</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

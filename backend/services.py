@@ -814,6 +814,7 @@ class LLMService:
         2. Avoid topics listed above.
         3. MAX 20 WORDS. Be savage.
         4. NO EMOJIS.
+        5. DO NOT roast follower counts - too generic.
         
         Return JSON: {{"text": "Your roast"}}
         """
@@ -989,18 +990,22 @@ class VoiceService:
     Text-to-Speech service using ElevenLabs API.
     Converts roast text to audio for playback during battles.
     
-    Voice mapping (expressive voices for roast battles):
-    - adam: Brian - Energetic, expressive American male
-    - charlie: Daniel - Deep, authoritative British male
-    - bella: Sarah - Expressive, dynamic American female
+    Voice mapping (5 expressive voices for roast battles):
+    - adam: Brian - Energetic American male
+    - charlie: Josh - Deep, young male (fast)
+    - bella: Sarah - Expressive American female
+    - clyde: Clyde - War veteran, aggressive male
+    - rachel: Rachel - Confident, assertive female
     """
     
     # Map friendly voice names to ElevenLabs voice IDs
-    # Using more expressive voices for emotional roasts
+    # Using aggressive, fast voices perfect for roast battles
     VOICE_IDS = {
         "adam": "nPczCjzI2devNBz1zQrb",      # Brian - Energetic male
-        "charlie": "onwK4e9ZLuTAKqWW03F9",   # Daniel - Deep British male
+        "charlie": "TxGEqnHWrfWFTfGW9XjX",   # Josh - Deep, young male (FAST)
         "bella": "EXAVITQu4vr4xnSDxMaL",     # Sarah - Expressive female
+        "clyde": "2EiwWnXFnvU5JabPnv8n",    # Clyde - War veteran, aggressive
+        "rachel": "21m00Tcm4TlvDq8ikWAM",   # Rachel - Confident female
     }
     
     def __init__(self):

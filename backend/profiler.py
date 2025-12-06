@@ -361,7 +361,7 @@ INSTRUCTIONS:
 
 Return JSON format ONLY:
 {{
-    "name": "Their name",
+    "name": "Their real name only (e.g. 'John Smith' or 'Elon Musk'). NO brackets, labels, or descriptions.",
     "speech_patterns": {{
         "vocabulary": ["word1", "word2", "phrase1"],
         "sentence_structure": "description of how they write",
