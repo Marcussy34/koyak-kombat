@@ -213,6 +213,23 @@ class ProfileAggregator:
             if cert_names:
                 parts.append(f"CERTIFICATIONS: {', '.join(cert_names)}")
         
+        # Recent Posts (new field from apimaestro/linkedin-profile-posts)
+        posts = raw_data.get("posts", [])
+        if posts and isinstance(posts, list):
+            post_parts = []
+            for post in posts[:3]:
+                text = post.get("text", post.get("commentary", post.get("textContent", "")))
+                likes = post.get("numLikes", post.get("likesCount", 0))
+                comments = post.get("numComments", post.get("commentsCount", 0))
+                
+                if text:
+                    # Clean up text (remove excessive newlines)
+                    text = " ".join(text.split())[:300] + "..." if len(text) > 300 else " ".join(text.split())
+                    post_parts.append(f"- \"{text}\" ({likes} likes, {comments} comments)")
+            
+            if post_parts:
+                parts.append("RECENT POSTS:\n" + "\n".join(post_parts))
+        
         return "LINKEDIN PROFILE:\n" + "\n".join(parts) if parts else "No LinkedIn data available."
     
     @staticmethod

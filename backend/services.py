@@ -120,6 +120,7 @@ class MultiPlatformScraperService:
     ACTORS = {
         "instagram": "apify/instagram-profile-scraper",   # No browser, fast
         "linkedin": "apimaestro/linkedin-profile-detail",  # $5/1000 profiles, no cookies required
+        "linkedin_posts": "apimaestro/linkedin-profile-posts",  # $5/1000 results, no cookies required
         "facebook_pages": "apify/facebook-pages-scraper",  # Page info, likes, followers
         "facebook_posts": "apify/facebook-posts-scraper",  # Recent posts with engagement
     }
@@ -313,20 +314,52 @@ class MultiPlatformScraperService:
             }
         
         try:
-            # apimaestro/linkedin-profile-detail input schema
-            # Parameter is "username", NOT "profileUrl"!
-            run_input = {
-                "username": username,       # Just the username part, e.g. "marcus-tan-8846ba271"
-                "includeEmail": False,      # Email lookup costs extra
+            # Prepare inputs for both actors
+            profile_input = {
+                "username": username,
+                "includeEmail": False,
             }
             
-            print(f"[LinkedIn] Calling apimaestro/linkedin-profile-detail with username: {username}")
-            run = self.client.actor(self.ACTORS["linkedin"]).call(run_input=run_input)
-            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+            posts_input = {
+                "username": username,
+                "limit": 3,  # Get recent 3 posts
+            }
             
-            result = items[0] if items else {}
-            print(f"[LinkedIn] Raw response: {json.dumps(result, indent=2, default=str)[:2000]}...")  # Truncate for readability
-            return result
+            print(f"[LinkedIn] Scraping profile & posts for {username}...")
+            
+            # Run both actors in parallel using a ThreadPoolExecutor
+            # We use a local executor here to avoid blocking the main thread too long
+            from concurrent.futures import ThreadPoolExecutor
+            
+            profile_data = {}
+            posts_data = []
+            
+            def fetch_profile():
+                print(f"[LinkedIn] Fetching profile for {username}...")
+                run = self.client.actor(self.ACTORS["linkedin"]).call(run_input=profile_input)
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                return items[0] if items else {}
+                
+            def fetch_posts():
+                print(f"[LinkedIn] Fetching posts for {username}...")
+                run = self.client.actor(self.ACTORS["linkedin_posts"]).call(run_input=posts_input)
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                return items
+            
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_profile = executor.submit(fetch_profile)
+                future_posts = executor.submit(fetch_posts)
+                
+                profile_data = future_profile.result()
+                posts_data = future_posts.result()
+            
+            # Merge posts into profile data
+            if profile_data:
+                profile_data["posts"] = posts_data
+                print(f"[LinkedIn] Merged {len(posts_data)} posts into profile data")
+            
+            # print(f"[LinkedIn] Raw response: {json.dumps(profile_data, indent=2, default=str)[:2000]}...")
+            return profile_data
             
         except Exception as e:
             print(f"[LinkedIn] Error: {e}")
