@@ -4,6 +4,24 @@ import { api } from '../lib/api';
 import { Sword, Skull, Zap, Scale, Gavel, Flame, X, ScrollText } from 'lucide-react';
 
 export default function Battle() {
+  // Helper to get the correct image based on gender and side
+  const getFighterImage = (fighter, side) => {
+    if (!fighter) return null;
+    
+    const gender = fighter.gender?.toLowerCase();
+    
+    if (side === 'left') {
+      if (gender === 'female') return '/female_leftside.png';
+      if (gender === 'male') return '/male_leftside.png';
+    } else { // right
+      if (gender === 'female') return '/female_rightside.png';
+      if (gender === 'male') return '/male_rightside.png';
+    }
+    
+    // Fallback to avatar_url or image
+    return fighter.avatar_url || fighter.image;
+  };
+
   const [matchId, setMatchId] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [isFighting, setIsFighting] = useState(false);
@@ -522,7 +540,7 @@ export default function Battle() {
           <div className={`relative w-full h-full max-h-[60vh] flex items-end justify-center ${damageOverlay?.target === 'fighter1' ? 'animate-shake' : ''}`}>
              {fighter1 && (
                <img 
-                 src={fighter1.avatar_url || fighter1.image} 
+                 src={getFighterImage(fighter1, 'left')} 
                  alt={fighter1.name} 
                  className="h-full object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]"
                  style={{ imageRendering: 'pixelated' }} 
@@ -569,9 +587,12 @@ export default function Battle() {
           <div className={`relative w-full h-full max-h-[60vh] flex items-end justify-center ${damageOverlay?.target === 'fighter2' ? 'animate-shake' : ''}`}>
              {fighter2 && (
                <img 
-                 src={fighter2.avatar_url || fighter2.image} 
+                 src={getFighterImage(fighter2, 'right')} 
                  alt={fighter2.name} 
-                 className="h-full object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.5)] transform scale-x-[-1]" // Flip image to face left
+                 className={`h-full object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.5)] ${
+                   // Only flip if it's NOT one of our static right-side images
+                   !getFighterImage(fighter2, 'right')?.includes('rightside.png') ? 'transform scale-x-[-1]' : ''
+                 }`}
                  style={{ imageRendering: 'pixelated' }} 
                />
              )}
