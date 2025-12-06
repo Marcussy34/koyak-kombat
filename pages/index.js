@@ -1,78 +1,98 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import Head from 'next/head';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black`}
-    >
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the index.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen font-['Press_Start_2P'] text-white flex flex-col relative overflow-hidden">
+      <Head>
+        <title>Koyak Kombat - Insert Coin</title>
+      </Head>
+
+      {/* Background with Overlay */}
+      <div className="absolute inset-0 z-0">
+        <img src="/background.png" alt="Dojo Background" className="w-full h-full object-cover opacity-40 blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
+        {/* Scanline Effect */}
+        <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 2px, 3px 100%' }}></div>
+      </div>
+
+      {/* Navbar */}
+      <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
+        <div className="text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">
+          Koyak Kombat
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs/pages/getting-started?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
+          <a href="#" className="hover:text-white hover:underline">Fighters</a>
+          <a href="#" className="hover:text-white hover:underline">Leaderboard</a>
+          <Link href="/about" className="hover:text-white hover:underline">About</Link>
         </div>
+      </nav>
+
+      {/* Hero Section */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4">
+        
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="mb-8"
+        >
+          <motion.h1 
+            className="text-5xl md:text-8xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[4px_4px_0_rgba(180,83,9,1)] mb-4 leading-tight"
+            initial={{ y: 20 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            KOYAK<br/>KOMBAT
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="text-xs md:text-sm text-gray-400 tracking-widest uppercase mt-4"
+          >
+            The Ultimate AI Roast Battle Arena
+          </motion.p>
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <Link href="/character" className="group relative inline-block">
+            <div className="absolute inset-0 bg-red-600 translate-y-2 translate-x-2 border-4 border-black"></div>
+            <motion.button 
+              className="relative px-8 py-6 bg-red-500 border-4 border-white text-white text-xl md:text-2xl hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-y-1 active:translate-x-1 uppercase"
+              animate={{ 
+                boxShadow: [
+                  "0 0 0 0 rgba(239, 68, 68, 0)",
+                  "0 0 20px 10px rgba(239, 68, 68, 0.4)",
+                  "0 0 0 0 rgba(239, 68, 68, 0)"
+                ]
+              }}
+              transition={{ 
+                duration: 1.5, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              Insert Coin
+            </motion.button>
+          </Link>
+        </motion.div>
+
       </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 p-6 text-center">
+        <p className="text-[8px] md:text-[10px] text-gray-600 uppercase">
+          © 2025 Koyak Kombat. No feelings were spared in the making of this game.
+        </p>
+      </footer>
+
     </div>
   );
 }
