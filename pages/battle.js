@@ -536,18 +536,23 @@ export default function Battle() {
       </Head>
 
       {/* Background */}
-      <div className="absolute inset-0 z-0">
+      <div className="fixed inset-0 z-0">
         {battleBackground ? (
           <>
-            <img 
-              src={battleBackground} 
-              alt="Battle Background" 
-              className="absolute inset-0 w-full h-full object-cover"
+            {/* Background image as div for better full-screen coverage */}
+            <div 
+              className="absolute inset-0 min-h-screen"
+              style={{
+                backgroundImage: `url(${battleBackground})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }}
             />
             <div className="absolute inset-0 bg-black/30" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black" />
+          <div className="absolute inset-0 min-h-screen bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black" />
         )}
         <div className="absolute inset-0 bg-black/20" /> 
       </div>

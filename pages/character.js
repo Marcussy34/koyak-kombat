@@ -478,7 +478,16 @@ export default function CharacterSelect() {
 
       {/* Background with Overlay (same as index.js) */}
       <div className="fixed inset-0 z-0">
-        <img src={selectedBackground} alt="Arena Background" className={`w-full h-full object-cover blur-[2px] brightness-[0.5] ${isLoading ? 'blur-sm' : ''}`} />
+        {/* Background image as div for better full-screen coverage */}
+        <div 
+          className={`absolute inset-0 min-h-screen ${isLoading ? 'blur-sm' : 'blur-[2px]'} brightness-[0.5]`}
+          style={{
+            backgroundImage: `url(${selectedBackground})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/70" />
         {/* Scanline Effect */}
         <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 2px, 3px 100%' }}></div>
