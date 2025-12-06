@@ -28,7 +28,8 @@ export default function LandingPage() {
 
       {/* Navbar */}
       <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
-        <div className="text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">
+        <div className="flex items-center gap-2 text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">
+          <img src="/icon.png" alt="Koyak Kombat" className="w-6 h-6 md:w-8 md:h-8" />
           Koyak Kombat
         </div>
         <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
