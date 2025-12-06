@@ -428,6 +428,43 @@ class MultiPlatformScraperService:
     # These scrape multiple profiles in a SINGLE actor call for efficiency
     # =========================================================================
     
+    def batch_scrape_twitter(self, usernames: list[str]) -> dict[str, list[dict]]:
+        """
+        Scrape multiple Twitter profiles in parallel.
+        Since SocialData is an API, we simulate batching with concurrent requests.
+        
+        Args:
+            usernames: List of Twitter usernames
+            
+        Returns:
+            Dict mapping username -> list of tweets/profile data
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        if not usernames:
+            return {}
+            
+        print(f"[Twitter Batch] Scraping {len(usernames)} profiles: {usernames}")
+        results = {}
+        
+        # Helper to scrape single user safely
+        def scrape_single(username):
+            try:
+                return username, self.scrape_twitter(username)
+            except Exception as e:
+                print(f"[Twitter Batch] Error scraping {username}: {e}")
+                return username, []
+
+        # Run in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_user = {executor.submit(scrape_single, u): u for u in usernames}
+            for future in as_completed(future_to_user):
+                username, data = future.result()
+                if data:
+                    results[username] = data
+                    
+        return results
+
     def batch_scrape_instagram(self, usernames: list[str]) -> dict[str, dict]:
         """
         Scrape multiple Instagram profiles in a SINGLE actor call.
@@ -653,6 +690,8 @@ class LLMService:
         3. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
         4. Humor is key. Make the audience laugh while destroying the opponent.
         5. DO NOT REPEAT any topics, insults, or punchlines already used in the Match History. Be original.
+        6. If you repeat a previous roast, you will be PENALIZED by the Judge AI.
+        7. DO NOT USE EMOJIS.
         
         Return JSON format ONLY:
         {{
@@ -710,7 +749,7 @@ class JudgeService:
             api_key=os.getenv("OPENROUTER_API_KEY", "missing_key"),
         )
     
-    def judge_roast(self, roast_text: str, opponent_name: str, opponent_attack_vectors: list) -> dict:
+    def judge_roast(self, roast_text: str, opponent_name: str, opponent_attack_vectors: list, match_history: list = None) -> dict:
         """
         Independently score a roast on Specificity, Creativity, and Accuracy.
         
@@ -718,6 +757,7 @@ class JudgeService:
             roast_text: The roast to judge
             opponent_name: Name of the person being roasted
             opponent_attack_vectors: List of real facts/weaknesses about opponent
+            match_history: List of previous turns to check for repetition
             
         Returns:
             { "damage": 0-100, "specificity": 0-100, "creativity": 0-100, "accuracy": 0-100 }
@@ -725,6 +765,11 @@ class JudgeService:
         
         # Format attack vectors for context
         vectors_text = "\n".join([f"- {av}" for av in opponent_attack_vectors]) if opponent_attack_vectors else "- No known facts"
+        
+        # Format history for repetition check
+        history_text = "No previous history."
+        if match_history:
+            history_text = "\n".join([f"- {msg.get('speaker', 'Unknown')}: {msg.get('text', '')}" for msg in match_history])
         
         prompt = f"""
         You are an impartial JUDGE in a roast battle. Score the following roast independently.
@@ -734,6 +779,9 @@ class JudgeService:
         TARGET: {opponent_name}
         KNOWN FACTS ABOUT TARGET:
         {vectors_text}
+        
+        PREVIOUS MATCH HISTORY (CHECK FOR REPEATS):
+        {history_text}
         
         SCORE THE ROAST ON THESE CRITERIA (0-100 each):
         
@@ -746,6 +794,8 @@ class JudgeService:
            - Common insults/overused jokes = 0-30
            - Clever wordplay or unexpected angles = 40-70
            - Brilliant, never-heard-before burns = 80-100
+           - **CRITICAL PENALTY**: If the roast repeats a topic or punchline from the PREVIOUS MATCH HISTORY, Creativity MUST be 0.
+
         
         3. ACCURACY (40% weight): Does it reference REAL content from the target's profile?
            - No connection to known facts = 0-30

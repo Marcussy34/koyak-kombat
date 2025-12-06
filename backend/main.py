@@ -48,6 +48,7 @@ class JudgeTurnRequest(BaseModel):
     roast_text: str
     opponent_name: str
     opponent_attack_vectors: List[str]
+    history: List[dict] = []
 
 class JudgeResponse(BaseModel):
     damage: int
@@ -305,21 +306,38 @@ async def create_fighters_batch(batch: BatchFighterCreate):
     
     print(f"[Batch] Instagram usernames: {ig_usernames}")
     print(f"[Batch] Facebook usernames: {fb_usernames}")
+
+    # Collect Twitter usernames
+    tw_usernames = []
+    tw_username_to_fighter = {}
+    
+    for info in f1_routed.get("twitter", []):
+        tw_usernames.append(info.username)
+        tw_username_to_fighter[info.username] = "f1"
+    for info in f2_routed.get("twitter", []):
+        tw_usernames.append(info.username)
+        tw_username_to_fighter[info.username] = "f2"
+        
+    print(f"[Batch] Twitter usernames: {tw_usernames}")
     
     # Step 2: Batch scrape all platforms in parallel (3 actors max)
     ig_results = {}
     fb_results = {}
+    tw_results = {}
     
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         ig_future = executor.submit(scraper_service.batch_scrape_instagram, ig_usernames) if ig_usernames else None
         fb_future = executor.submit(scraper_service.batch_scrape_facebook, fb_usernames) if fb_usernames else None
+        tw_future = executor.submit(scraper_service.batch_scrape_twitter, tw_usernames) if tw_usernames else None
         
         if ig_future:
             ig_results = ig_future.result()
         if fb_future:
             fb_results = fb_future.result()
+        if tw_future:
+            tw_results = tw_future.result()
     
-    print(f"[Batch] Scraping complete. IG: {list(ig_results.keys())}, FB: {list(fb_results.keys())}")
+    print(f"[Batch] Scraping complete. IG: {list(ig_results.keys())}, FB: {list(fb_results.keys())}, TW: {list(tw_results.keys())}")
     
     # Step 3: Split results back to each fighter
     f1_data = {}
@@ -342,6 +360,16 @@ async def create_fighters_batch(batch: BatchFighterCreate):
             f1_data["facebook"] = data
         else:
             f2_data["facebook"] = data
+
+    for username, data in tw_results.items():
+        if tw_username_to_fighter.get(username) == "f1":
+            f1_data["twitter"] = data
+            if f1_name == "Digital Twin 1":
+                f1_name = f"@{username}"
+        else:
+            f2_data["twitter"] = data
+            if f2_name == "Digital Twin 2":
+                f2_name = f"@{username}"
     
     print(f"[Batch] F1 platforms: {list(f1_data.keys())}, F2 platforms: {list(f2_data.keys())}")
     
@@ -444,7 +472,8 @@ async def judge_turn(req: JudgeTurnRequest):
         judge_result = judge_service.judge_roast(
             roast_text=req.roast_text,
             opponent_name=req.opponent_name,
-            opponent_attack_vectors=req.opponent_attack_vectors
+            opponent_attack_vectors=req.opponent_attack_vectors,
+            match_history=req.history
         )
         
         damage = int(judge_result.get("damage", 50))

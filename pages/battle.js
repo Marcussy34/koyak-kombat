@@ -10,6 +10,7 @@ export default function Battle() {
     
     const gender = fighter.gender?.toLowerCase();
     
+    // Explicit gender check
     if (side === 'left') {
       if (gender === 'female') return '/characters/female_leftside.png';
       if (gender === 'male') return '/characters/male_leftside.png';
@@ -18,8 +19,15 @@ export default function Battle() {
       if (gender === 'male') return '/characters/male_rightside.png';
     }
     
-    // Fallback to avatar_url or image
-    return fighter.avatar_url || fighter.image;
+    // If we have a local image path already, use it
+    if (fighter.image && fighter.image.startsWith('/characters/')) {
+      return fighter.image;
+    }
+
+    // If it's a DiceBear URL (pixel art), override with our high-quality default (Male)
+    // This fixes the issue where "Digital Twins" default to pixel art
+    if (side === 'left') return '/characters/male_leftside.png';
+    return '/characters/male_rightside.png';
   };
 
   const [matchId, setMatchId] = useState(null);
@@ -34,6 +42,7 @@ export default function Battle() {
   const [lastTurnStats, setLastTurnStats] = useState(null);
   const [fighter1, setFighter1] = useState(null);
   const [fighter2, setFighter2] = useState(null);
+  const [battleBackground, setBattleBackground] = useState(null);
   
   // Prevents auto-start: only allow fight after page is fully ready
   const [isReady, setIsReady] = useState(false);
@@ -44,6 +53,7 @@ export default function Battle() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isJudging, setIsJudging] = useState(false); // New state for Judge AI thinking
   const [judgeDecision, setJudgeDecision] = useState(null); // New state for Judge Decision overlay
+  const [highlightedFighter, setHighlightedFighter] = useState(null); // 'fighter1' | 'fighter2' | null
   const [showLogs, setShowLogs] = useState(false); // New state for Chat Logs overlay
   const [displayedText, setDisplayedText] = useState(''); // For streaming roast text
   const [isStreaming, setIsStreaming] = useState(false); // True while streaming text
@@ -74,6 +84,11 @@ export default function Battle() {
     // Load fighters from localStorage
     const f1 = JSON.parse(localStorage.getItem('fighter1'));
     const f2 = JSON.parse(localStorage.getItem('fighter2'));
+    const bg = localStorage.getItem('battleBackground');
+    
+    if (bg) {
+      setBattleBackground(bg);
+    }
     
     if (f1 && f2) {
       setFighter1(f1);
@@ -119,6 +134,11 @@ export default function Battle() {
     if (victoryAudioRef.current) {
         victoryAudioRef.current.pause();
         victoryAudioRef.current.currentTime = 0;
+    }
+
+    // Ensure BGM is playing (fix for browser autoplay policy)
+    if (bgmRef.current && bgmRef.current.paused) {
+      bgmRef.current.play().catch(e => console.log("BGM play failed:", e));
     }
 
     const match = await api.startMatch('fighter1_id', 'fighter2_id');
@@ -169,8 +189,7 @@ export default function Battle() {
     }
 
     setIsGenerating(true); // Hide bubbles while thinking
-
-    // Construct payload including attack_vectors for personalized roasts
+    setTurn(currentTurn); // Update turn immediately for UI feedback
     const payload = {
       match_id: currentMatchId,
       history: chatHistory.map(msg => ({ speaker: msg.sender, text: msg.text })),
@@ -205,7 +224,7 @@ export default function Battle() {
         });
 
         // VISUAL UPDATE: Show the roast text immediately
-        setTurn(currentTurn);
+        // setTurn(currentTurn); // Moved to start of function
 
         const tempMsg = {
           sender: currentTurn === 'fighter1' ? fighter1.name : fighter2.name,
@@ -224,6 +243,7 @@ export default function Battle() {
         const charDelay = streamDuration / fullText.length;
         
         setDisplayedText('');
+        setHighlightedFighter(currentTurn); // Start animation
         setIsStreaming(true);
         
         for (let i = 0; i <= fullText.length; i++) {
@@ -244,7 +264,8 @@ export default function Battle() {
             match_id: currentMatchId,
             roast_text: genResponse.text,
             opponent_name: currentTurn === 'fighter1' ? fighter2.name : fighter1.name,
-            opponent_attack_vectors: currentTurn === 'fighter1' ? fighter2.attack_vectors : fighter1.attack_vectors
+            opponent_attack_vectors: currentTurn === 'fighter1' ? fighter2.attack_vectors : fighter1.attack_vectors,
+            history: chatHistory.map(msg => ({ speaker: msg.sender, text: msg.text }))
         };
         
         const judgeResponse = await api.judgeTurn(judgePayload);
@@ -287,7 +308,10 @@ export default function Battle() {
             // Show damage overlay
             const target = currentTurn === 'fighter1' ? 'fighter2' : 'fighter1';
             setDamageOverlay({ amount: dealtDamage, target, isCritical: judgeResponse.is_critical });
-            setTimeout(() => setDamageOverlay(null), 1000); // Hide after 1s
+            setTimeout(() => {
+              setDamageOverlay(null);
+              setHighlightedFighter(null); // End animation after damage
+            }, 1000); // Hide after 1s
 
             // Apply damage
             if (currentTurn === 'fighter1') {
@@ -387,7 +411,18 @@ export default function Battle() {
 
       {/* Background */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black" />
+        {battleBackground ? (
+          <>
+            <img 
+              src={battleBackground} 
+              alt="Battle Background" 
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/30" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-neutral-950 to-black" />
+        )}
         <div className="absolute inset-0 bg-black/20" /> 
       </div>
 
@@ -403,11 +438,11 @@ export default function Battle() {
       {/* Header / Health Bars */}
       <div className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-start gap-8">
         {/* Fighter 1 Health */}
-        <div className="flex-1 max-w-md">
-          <div className="flex justify-between text-xs mb-1 text-blue-400">
-            <span>{fighter1?.name || 'FIGHTER 1'}</span>
-            <span className="text-[10px] text-zinc-500 ml-2">({fighter1?.model?.split('/').pop()})</span>
-            <span>{Math.round(fighter1Health)}%</span>
+        <div className="flex-1 max-w-md overflow-hidden">
+          <div className="flex items-center gap-2 text-xs mb-1 text-blue-400 whitespace-nowrap">
+            <span className="font-bold truncate flex-1 text-left" title={fighter1?.name}>{fighter1?.name || 'FIGHTER 1'}</span>
+            <span className="text-[10px] text-zinc-500 shrink-0">({fighter1?.model?.split('/').pop()})</span>
+            <span className="font-mono shrink-0">{Math.round(fighter1Health)}</span>
           </div>
           <div className="h-6 bg-neutral-900 border-2 border-white/50 relative skew-x-[-10deg]">
             <div 
@@ -419,16 +454,7 @@ export default function Battle() {
 
         {/* VS Logo & Chat Log Button - Centered Container */}
         <div className="absolute top-16 left-0 right-0 flex flex-col items-center z-30">
-          {/* Chat Log Toggle */}
-          <button 
-            onClick={() => setShowLogs(true)}
-            className="mb-2 px-5 py-1 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md rounded border border-gray-600 hover:border-yellow-500 transition-all hover:scale-105 shadow-lg"
-            title="View Battle Logs"
-          >
-            <span className="text-[10px] font-bold text-gray-400 hover:text-yellow-400 tracking-widest uppercase">
-              VIEW LOGS
-            </span>
-          </button>
+
 
           {/* VS Text */}
           <div className="text-6xl md:text-8xl font-black text-yellow-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.8)] animate-pulse italic transform -skew-x-12 select-none">
@@ -484,11 +510,11 @@ export default function Battle() {
         </div>
       )}
         {/* Fighter 2 Health */}
-        <div className="flex-1 max-w-md">
-          <div className="flex justify-between text-xs mb-1 text-red-400">
-            <span>{Math.round(fighter2Health)}%</span>
-            <span className="text-[10px] text-zinc-500 mr-2">({fighter2?.model?.split('/').pop()})</span>
-            <span>{fighter2?.name || 'FIGHTER 2'}</span>
+        <div className="flex-1 max-w-md overflow-hidden">
+          <div className="flex items-center gap-2 text-xs mb-1 text-red-400 whitespace-nowrap justify-end">
+            <span className="font-mono shrink-0">{Math.round(fighter2Health)}</span>
+            <span className="text-[10px] text-zinc-500 shrink-0">({fighter2?.model?.split('/').pop()})</span>
+            <span className="font-bold truncate flex-1 text-right" title={fighter2?.name}>{fighter2?.name || 'FIGHTER 2'}</span>
           </div>
           <div className="h-6 bg-neutral-900 border-2 border-white/50 relative skew-x-[10deg]">
             <div 
@@ -503,9 +529,13 @@ export default function Battle() {
       <div className="flex-1 flex relative z-10 mt-16">
         
         {/* Fighter 1 Section */}
-        <div className={`flex-1 flex flex-col justify-end items-center relative transition-all duration-500 
+        <div className={`flex-1 flex flex-col justify-end items-center relative transition-all duration-300 
           ${(gameOver && winner !== fighter1) || koTarget === 'fighter1' ? 'grayscale opacity-50 scale-90' : ''}
-          ${turn === 'fighter1' && !gameOver && !koTarget ? 'grayscale-0 scale-105 z-10' : 'grayscale-[50%] scale-95 z-0'}
+          ${!gameOver && !koTarget ? (
+            highlightedFighter === 'fighter1' 
+              ? 'grayscale-0 scale-110 z-30 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] translate-y-12' 
+              : (highlightedFighter ? 'grayscale-[50%] scale-95 z-0 translate-y-12' : 'grayscale-0 scale-100 z-10 translate-y-12')
+          ) : ''}
         `}>
           {/* KO Overlay */}
           {((gameOver && winner !== fighter1) || koTarget === 'fighter1') && (
@@ -523,12 +553,18 @@ export default function Battle() {
             </div>
           )}
           
-          {/* Speech Bubble - Hidden during Round Overlay OR Generating */}
-          {lastMessage && lastMessage.sender === fighter1?.name && !gameOver && !roundOverlay && !isGenerating && (
+          {/* Speech Bubble - Hidden during Round Overlay OR Generating (unless it's THIS fighter's turn) */}
+          {((lastMessage && lastMessage.sender === fighter1?.name && !isGenerating) || (isGenerating && turn === 'fighter1')) && !gameOver && !roundOverlay && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 w-64 md:w-80 bg-white text-black p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0_rgba(0,0,0,0.5)] z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="text-[10px] leading-relaxed font-sans font-bold uppercase">
-                "{isStreaming ? displayedText : lastMessage.text}"
-                {isStreaming && <span className="animate-pulse">|</span>}
+                {isGenerating ? (
+                  <span className="animate-pulse">THINKING...</span>
+                ) : (
+                  <>
+                    "{isStreaming ? displayedText : lastMessage.text}"
+                    {isStreaming && <span className="animate-pulse">|</span>}
+                  </>
+                )}
               </div>
               {/* Tail */}
               <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-black"></div>
@@ -537,7 +573,7 @@ export default function Battle() {
           )}
 
           {/* Avatar */}
-          <div className={`relative w-full h-full max-h-[60vh] flex items-end justify-center ${damageOverlay?.target === 'fighter1' ? 'animate-shake' : ''}`}>
+          <div className={`relative w-full h-full max-h-[75vh] flex items-end justify-center translate-y-12 ${damageOverlay?.target === 'fighter1' ? 'animate-shake' : ''}`}>
              {fighter1 && (
                <img 
                  src={getFighterImage(fighter1, 'left')} 
@@ -550,9 +586,13 @@ export default function Battle() {
         </div>
 
         {/* Fighter 2 Section */}
-        <div className={`flex-1 flex flex-col justify-end items-center relative transition-all duration-500 
+        <div className={`flex-1 flex flex-col justify-end items-center relative transition-all duration-300 
           ${(gameOver && winner !== fighter2) || koTarget === 'fighter2' ? 'grayscale opacity-50 scale-90' : ''}
-          ${turn === 'fighter2' && !gameOver && !koTarget ? 'grayscale-0 scale-105 z-10' : 'grayscale-[50%] scale-95 z-0'}
+          ${!gameOver && !koTarget ? (
+            highlightedFighter === 'fighter2' 
+              ? 'grayscale-0 scale-110 z-30 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] translate-y-12' 
+              : (highlightedFighter ? 'grayscale-[50%] scale-95 z-0 translate-y-12' : 'grayscale-0 scale-100 z-10 translate-y-12')
+          ) : ''}
         `}>
           {/* KO Overlay */}
           {((gameOver && winner !== fighter2) || koTarget === 'fighter2') && (
@@ -570,12 +610,18 @@ export default function Battle() {
             </div>
           )}
 
-          {/* Speech Bubble - Hidden during Round Overlay OR Generating */}
-          {lastMessage && lastMessage.sender === fighter2?.name && !gameOver && !roundOverlay && !isGenerating && (
+          {/* Speech Bubble - Hidden during Round Overlay OR Generating (unless it's THIS fighter's turn) */}
+          {((lastMessage && lastMessage.sender === fighter2?.name && !isGenerating) || (isGenerating && turn === 'fighter2')) && !gameOver && !roundOverlay && (
             <div className="absolute top-20 left-1/2 -translate-x-1/2 w-64 md:w-80 bg-white text-black p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0_rgba(0,0,0,0.5)] z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="text-[10px] leading-relaxed font-sans font-bold uppercase">
-                "{isStreaming ? displayedText : lastMessage.text}"
-                {isStreaming && <span className="animate-pulse">|</span>}
+                {isGenerating ? (
+                  <span className="animate-pulse">THINKING...</span>
+                ) : (
+                  <>
+                    "{isStreaming ? displayedText : lastMessage.text}"
+                    {isStreaming && <span className="animate-pulse">|</span>}
+                  </>
+                )}
               </div>
               {/* Tail */}
               <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-black"></div>
@@ -584,7 +630,7 @@ export default function Battle() {
           )}
 
           {/* Avatar */}
-          <div className={`relative w-full h-full max-h-[60vh] flex items-end justify-center ${damageOverlay?.target === 'fighter2' ? 'animate-shake' : ''}`}>
+          <div className={`relative w-full h-full max-h-[75vh] flex items-end justify-center translate-y-12 ${damageOverlay?.target === 'fighter2' ? 'animate-shake' : ''}`}>
              {fighter2 && (
                <img 
                  src={getFighterImage(fighter2, 'right')} 
@@ -690,6 +736,19 @@ export default function Battle() {
           </div>
         </div>
       )}
+
+      {/* View Logs Button - Bottom Right */}
+      <div className="absolute bottom-4 right-4 z-50">
+        <button 
+          onClick={() => setShowLogs(true)}
+          className="px-4 py-2 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md rounded border border-gray-600 hover:border-yellow-500 transition-all hover:scale-105 shadow-lg flex items-center gap-2"
+          title="View Battle Logs"
+        >
+          <span className="text-[10px] font-bold text-gray-400 hover:text-yellow-400 tracking-widest uppercase">
+            VIEW LOGS
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

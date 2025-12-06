@@ -133,7 +133,7 @@ class ProfileAggregator:
             for post in posts[:10]:
                 caption = post.get("caption", post.get("edge_media_to_caption", {}).get("edges", [{}])[0].get("node", {}).get("text", ""))
                 if caption:
-                    captions.append(caption[:200])  # Truncate long captions
+                    captions.append(caption[:500])  # Increased truncation limit
             if captions:
                 parts.append("RECENT CAPTIONS:\n" + "\n---\n".join(captions))
         
@@ -162,7 +162,7 @@ class ProfileAggregator:
         
         summary = raw_data.get("summary", raw_data.get("about", ""))
         if summary:
-            parts.append(f"About: {summary[:500]}")  # Truncate
+            parts.append(f"About: {summary[:1000]}")  # Increased truncation limit
         
         # Work experience
         positions = raw_data.get("positions", raw_data.get("experience", []))
@@ -223,7 +223,7 @@ class ProfileAggregator:
                 
                 if text:
                     engagement = f"({likes} likes, {shares} shares, {comments} comments)"
-                    post_parts.append(f"Post: {text[:300]} {engagement}")
+                    post_parts.append(f"Post: {text[:500]} {engagement}")
             
             if post_parts:
                 parts.append("RECENT POSTS:\n" + "\n---\n".join(post_parts))
@@ -271,8 +271,8 @@ class PersonaProfiler:
             base_url="https://openrouter.ai/api/v1",
             api_key=os.getenv("OPENROUTER_API_KEY", "missing_key"),
         )
-        # Use GPT-4o-mini for persona synthesis (cheap but effective)
-        self.model = os.getenv("PROFILER_MODEL", "openai/gpt-4o-mini")
+        # Use GPT-5 Mini for persona synthesis (fast, smart, cheap)
+        self.model = os.getenv("PROFILER_MODEL", "openai/gpt-5-mini")
     
     def generate_persona(self, aggregated_data: str, target_name: str = "Unknown") -> FighterPersona:
         """
@@ -293,11 +293,17 @@ SOCIAL MEDIA DATA:
 {aggregated_data}
 
 INSTRUCTIONS:
-1. Identify their SPEECH PATTERNS: vocabulary, sentence structure, tone
-2. Find PSYCHOLOGICAL INSECURITIES: things they're defensive about, contradictions, failures
-3. Understand their WORLDVIEW: what they believe, and where those beliefs contradict their actions
-4. List specific ATTACK VECTORS: embarrassing moments, hypocrisies, meme-able quotes
-5. Deduce their GENDER: "male", "female", or "non-binary"
+1. Identify their SPEECH PATTERNS: vocabulary, sentence structure, tone. Be very specific.
+2. Find PSYCHOLOGICAL INSECURITIES: things they're defensive about, contradictions, failures.
+3. Understand their WORLDVIEW: what they believe, and where those beliefs contradict their actions.
+4. List specific ATTACK VECTORS: embarrassing moments, hypocrisies, meme-able quotes.
+5. Deduce their GENDER: "male", "female", or "non-binary".
+6. **CRITICAL**: Generate a "system_prompt" that is EXTREMELY DETAILED.
+   - It must contain a "Knowledge Base" of specific facts, quotes, and events from the data.
+   - **IMPORTANT**: Include at least 15 specific data points (tweets, posts, bio details) in the Knowledge Base.
+   - It must explicitly define their writing style with examples.
+   - It must be long enough to give the Fighter LLM deep context (at least 500 words).
+   - **CONSTRAINT**: The system prompt must explicitly instruct the persona to NOT use emojis.
 
 Return JSON format ONLY:
 {{
@@ -320,7 +326,7 @@ Return JSON format ONLY:
         "specific embarrassing fact or event 2"
     ],
     "gender": "male/female/non-binary",
-    "system_prompt": "You are [name]. You speak like... You believe... Your weaknesses are... When roasted, you deflect by..."
+    "system_prompt": "You are [name].\\n\\nBIO & PSYCHOLOGY:\\n[Deep dive into who they are, their insecurities, and what drives them]\\n\\nSPEECH STYLE:\\n[Detailed analysis of their writing style, slang, and capitalization habits]\\n\\nKNOWLEDGE BASE (Use these facts!):\\n- [Fact 1]\\n- [Fact 2]\\n- [Quote 1]\\n...\\n\\nINSTRUCTIONS:\\nYou are in a roast battle. Be ruthless. Use the Knowledge Base to make specific references."
 }}
 """
         
@@ -337,7 +343,15 @@ Return JSON format ONLY:
             )
             
             content = response.choices[0].message.content
-            print(f"[Profiler] Received response from LLM. Parsing JSON...")
+            
+            # Clean markdown code blocks if present
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+                
+            print(f"[Profiler] Raw LLM response (first 500 chars): {content[:500]}", flush=True)
+            print(f"[Profiler] Received response from LLM. Parsing JSON...", flush=True)
             data = json.loads(content)
             
             # Handle case where LLM returns a list instead of dict

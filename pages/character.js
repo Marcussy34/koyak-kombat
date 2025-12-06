@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { motion } from 'framer-motion';
-import { Sword, Plus, X, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Sword, Plus, X, ChevronDown, AlertTriangle, Map } from 'lucide-react';
 import { api } from '../lib/api';
 
 export default function CharacterSelect() {
@@ -18,6 +18,19 @@ export default function CharacterSelect() {
   const [fighter2Voice, setFighter2Voice] = useState('charlie');
   const [fighter2Model, setFighter2Model] = useState('google/gemini-2.0-flash-001');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Background Selection State
+  const [selectedBackground, setSelectedBackground] = useState('/backgrounds/dojobackground.png');
+  const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState(false);
+
+  const backgrounds = [
+    { id: 'dojo', name: 'Dojo', src: '/backgrounds/dojobackground.png' },
+    { id: 'harbor', name: 'Harbor', src: '/backgrounds/harborbackground.png' },
+    { id: 'jungle', name: 'Jungle', src: '/backgrounds/junglebackground.png' },
+    { id: 'sakura', name: 'Sakura', src: '/backgrounds/sakurabackground.png' },
+    { id: 'scifi', name: 'Sci-Fi', src: '/backgrounds/scifibackground.png' },
+    { id: 'winter', name: 'Winter', src: '/backgrounds/winterbackground.png' },
+  ];
 
   // Loading progress state
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -164,6 +177,7 @@ export default function CharacterSelect() {
       localStorage.clear();
       localStorage.setItem('fighter1', JSON.stringify({ ...f1, voiceId: fighter1Voice, model: fighter1Model }));
       localStorage.setItem('fighter2', JSON.stringify({ ...f2, voiceId: fighter2Voice, model: fighter2Model }));
+      localStorage.setItem('battleBackground', selectedBackground);
       await new Promise(r => setTimeout(r, 400));
 
       addLoadingStep('Entering arena...', 100);
@@ -289,6 +303,78 @@ export default function CharacterSelect() {
         </motion.div>
       )}
 
+      {/* Background Selection Modal */}
+      {isBackgroundModalOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md"
+          onClick={() => setIsBackgroundModalOpen(false)}
+        >
+          <motion.div 
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            className="relative mx-4 w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Shadow */}
+            <div className="absolute inset-0 bg-yellow-900 translate-y-2 translate-x-2 border-4 border-black"></div>
+            {/* Modal Content */}
+            <div className="relative bg-black/95 border-4 border-yellow-600 p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-yellow-800/50">
+                <div className="flex items-center gap-3">
+                  <Map className="w-6 h-6 text-yellow-500" />
+                  <h3 className="text-lg text-yellow-500 uppercase tracking-wider">Select Arena</h3>
+                </div>
+                <button 
+                  onClick={() => setIsBackgroundModalOpen(false)}
+                  className="text-gray-500 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              {/* Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {backgrounds.map((bg) => (
+                  <button
+                    key={bg.id}
+                    onClick={() => {
+                      setSelectedBackground(bg.src);
+                      setIsBackgroundModalOpen(false);
+                    }}
+                    className={`group relative aspect-video border-4 transition-all duration-200 ${
+                      selectedBackground === bg.src 
+                        ? 'border-yellow-500 scale-105 z-10 shadow-[0_0_20px_rgba(234,179,8,0.5)]' 
+                        : 'border-gray-800 hover:border-gray-500 hover:scale-105 hover:z-10'
+                    }`}
+                  >
+                    <img 
+                      src={bg.src} 
+                      alt={bg.name} 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                      <span className={`text-xs uppercase tracking-wider font-bold ${
+                        selectedBackground === bg.src ? 'text-yellow-400' : 'text-gray-300 group-hover:text-white'
+                      }`}>
+                        {bg.name}
+                      </span>
+                    </div>
+                    {selectedBackground === bg.src && (
+                      <div className="absolute top-2 right-2 w-3 h-3 bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,1)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
 
 
       {/* Background with Overlay (same as index.js) */}
@@ -403,6 +489,34 @@ export default function CharacterSelect() {
               >
                 Enter their social profiles to spawn digital warriors
               </motion.p>
+            </motion.div>
+
+            {/* Background Selection Button */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.25 }}
+              className="mb-8 z-20"
+            >
+              <button
+                onClick={() => setIsBackgroundModalOpen(true)}
+                className="group relative flex items-center gap-4 px-6 py-3 bg-black/60 border-2 border-yellow-800/50 hover:border-yellow-500 hover:bg-black/80 transition-all duration-300"
+              >
+                <div className="w-16 h-10 border-2 border-gray-600 group-hover:border-yellow-500 overflow-hidden relative">
+                  <img 
+                    src={selectedBackground} 
+                    alt="Selected Arena" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-[8px] text-gray-500 uppercase tracking-widest">Current Arena</span>
+                  <span className="text-xs text-yellow-500 uppercase tracking-wider group-hover:text-yellow-400">
+                    {backgrounds.find(b => b.src === selectedBackground)?.name || 'Unknown'}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-yellow-500 transition-colors" />
+              </button>
             </motion.div>
 
             {/* Fighter Cards Grid - Animated */}
