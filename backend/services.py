@@ -726,101 +726,53 @@ class LLMService:
         Generates a roast based on the persona and conversation history.
         Returns JSON: { "text": "..." } - NO damage scoring (Judge AI handles that)
         
-        ANTI-REPETITION SYSTEM (v2 - More Aggressive):
-        - Passes FULL previous roasts as explicit "DO NOT COPY" examples
-        - Extracts 2-word phrases to catch concepts like "vintage fit", "mum won't"
-        - Uses higher temperature (0.9) for more creative variety
-        - Forces AI to attack from a completely fresh angle each turn
+        ANTI-REPETITION SYSTEM (v3 - Simplified for Small Models):
+        - Extracts attack TOPICS (not full roasts) from history
+        - Uses keyword matching to categorize previous attacks
+        - Passes only a short list of exhausted topics (~30 tokens)
+        - Works well with small context window models
         """
-        # Use full history to prevent repetition
-        history_text = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in chat_history])
+        # === ANTI-REPETITION v3: Topic Extraction ===
+        # Define attack categories with keyword triggers (expanded for better coverage)
+        ATTACK_CATEGORIES = {
+            "appearance": ["ugly", "face", "look", "outfit", "clothes", "fashion", "style", "fit", "wearing", "hair", "body", "photo", "selfie", "mirror"],
+            "dating": ["single", "lonely", "relationship", "girlfriend", "boyfriend", "date", "love", "virgin", "crush", "tinder", "bumble", "dm"],
+            "career": ["job", "work", "career", "unemployed", "salary", "boss", "office", "intern", "promotion", "hustle", "ceo", "founder", "startup", "linkedin", "resume", "hired", "fired"],
+            "personality": ["boring", "annoying", "cringe", "toxic", "fake", "hypocrite", "ego", "personality", "thinking", "pretend", "act"],
+            "social_media": ["followers", "likes", "posts", "content", "influencer", "clout", "engagement", "views", "tiktok", "instagram", "insta", "twitter", "reels", "viral", "feed"],
+            "intelligence": ["dumb", "stupid", "brain", "iq", "degree", "education", "school", "college", "dropout", "graduated", "spelling", "count", "math"],
+            "hobbies": ["hobby", "game", "gaming", "sport", "music", "anime", "netflix", "book", "travel", "gym", "workout"],
+            "family": ["mom", "mum", "dad", "parents", "family", "sibling", "brother", "sister", "grandma", "kid", "child"],
+        }
         
-        # === ANTI-REPETITION v2: Extract previous roasts as banned examples ===
-        # Get all previous roasts as explicit "DO NOT REPEAT" examples
-        previous_roasts = [msg['text'] for msg in chat_history if msg.get('text')]
-        banned_roasts_text = "\n".join([f"- \"{roast}\"" for roast in previous_roasts]) if previous_roasts else "None yet"
-        
-        # Extract 2-word phrases to catch concepts like "vintage fit", "mum won't let"
-        # This is more effective than single words for preventing similar attacks
-        exhausted_phrases = []
+        # Extract exhausted topics from history
+        exhausted_topics = set()
         for msg in chat_history:
             text = msg.get('text', '').lower()
-            words = text.split()
-            # Extract 2-word phrases (bigrams)
-            for i in range(len(words) - 1):
-                phrase = f"{words[i]} {words[i+1]}"
-                # Clean punctuation
-                phrase = phrase.strip('.,!?"\'()[]')
-                if len(phrase) > 5:  # Skip tiny phrases
-                    exhausted_phrases.append(phrase)
+            for category, keywords in ATTACK_CATEGORIES.items():
+                if any(kw in text for kw in keywords):
+                    exhausted_topics.add(category)
         
-        # Also extract single keywords as backup
-        exhausted_words = []
-        for msg in chat_history:
-            text = msg.get('text', '').lower()
-            keywords = [
-                word.strip('.,!?"\'') 
-                for word in text.split() 
-                if len(word) > 4 and word.isalpha()
-            ]
-            exhausted_words.extend(keywords)
+        # Format as concise string
+        exhausted_topics_text = ", ".join(exhausted_topics) if exhausted_topics else "none"
         
-        # Dedupe and format
-        exhausted_phrases = list(set(exhausted_phrases))[:20]
-        exhausted_words = list(set(exhausted_words))[:30]
-        
-        banned_concepts = ", ".join(exhausted_phrases + exhausted_words) if (exhausted_phrases or exhausted_words) else "None yet"
-        
-        # Calculate turn number for variety nudges
+        # Calculate turn number
         turn_number = len([m for m in chat_history if m.get('speaker') == opponent_name]) + 1
-        
-        # Variety prompts based on turn number - cycle through DIFFERENT attack angles
-        variety_hints = [
-            "Attack their APPEARANCE or FASHION SENSE.",
-            "Attack their RELATIONSHIPS or DATING LIFE.",
-            "Attack their CAREER or JOB (or lack thereof).",
-            "Attack their PERSONALITY FLAWS or HYPOCRISY.",
-            "Attack their CRINGE ONLINE CONTENT or FOLLOWER COUNT.",
-            "Attack their EDUCATION or INTELLIGENCE.",
-            "Attack their HOBBIES or INTERESTS (make them sound lame).",
-            "Attack their FAMILY or UPBRINGING.",
-        ]
-        current_hint = variety_hints[(turn_number - 1) % len(variety_hints)]
         
         prompt = f"""
         {system_prompt}
         
-        CONTEXT:
-        You are in a roast battle against {opponent_name}.
-        This is YOUR TURN #{turn_number}.
+        Turn #{turn_number} against {opponent_name}.
         
-        ═══════════════════════════════════════════════════════
-        ⛔⛔⛔ CRITICAL: DO NOT REPEAT THESE ROASTS ⛔⛔⛔
-        {banned_roasts_text}
-        
-        If your roast is similar to ANY of the above, you LOSE.
-        You MUST attack a COMPLETELY DIFFERENT topic.
-        ═══════════════════════════════════════════════════════
-        
-        BANNED WORDS/PHRASES (automatic 0 damage if used):
-        {banned_concepts}
-        
-        === YOUR ATTACK ANGLE FOR THIS TURN ===
-        {current_hint}
-        Pick something from their profile that HASN'T been attacked yet.
+        EXHAUSTED TOPICS (DO NOT USE): {exhausted_topics_text}
         
         RULES:
-        1. Use your persona's slang and speech style.
-        2. Attack something NEVER mentioned in previous roasts.
-        3. **MAX 20 WORDS**. Punchy and brutal.
-        4. **BE SAVAGE**. Hit where it hurts.
-        5. **BE CLEVER**. Wordplay, irony, or unexpected twist.
-        6. NO EMOJIS.
+        1. Pick an attack vector from AMMUNITION that hasn't been used.
+        2. Avoid topics listed above.
+        3. MAX 20 WORDS. Be savage.
+        4. NO EMOJIS.
         
-        Return JSON ONLY:
-        {{
-            "text": "Your roast here"
-        }}
+        Return JSON: {{"text": "Your roast"}}
         """
         
         # Use the requested model or fall back to default

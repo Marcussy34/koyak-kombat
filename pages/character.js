@@ -39,6 +39,7 @@ export default function CharacterSelect() {
 
   const [modalMessage, setModalMessage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
 
   // Auto-scroll logs
   const logsEndRef = useRef(null);
@@ -86,6 +87,17 @@ export default function CharacterSelect() {
 
   // Filter out empty URLs before submitting
   const cleanUrls = (urls) => urls.filter(url => url.trim() !== '');
+
+  const handleSpawnClick = () => {
+    const f1Urls = cleanUrls(fighter1Urls);
+    const f2Urls = cleanUrls(fighter2Urls);
+
+    if (f1Urls.length >= 3 || f2Urls.length >= 3) {
+      setIsWarningModalOpen(true);
+    } else {
+      handleSpawn();
+    }
+  };
 
   const handleSpawn = async () => {
     const f1Urls = cleanUrls(fighter1Urls);
@@ -326,6 +338,60 @@ export default function CharacterSelect() {
               >
                 Continue
               </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Warning Modal for Multiple Profiles */}
+      {isWarningModalOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setIsWarningModalOpen(false)}
+        >
+          <motion.div 
+            initial={{ scale: 0.8, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.8, y: 20 }}
+            className="relative mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Shadow */}
+            <div className="absolute inset-0 bg-yellow-900 translate-y-2 translate-x-2 border-4 border-black"></div>
+            {/* Modal Content */}
+            <div className="relative bg-black/95 border-4 border-yellow-600 p-6 max-w-md">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-yellow-800/50">
+                <AlertTriangle className="w-6 h-6 text-yellow-500" />
+                <h3 className="text-sm text-yellow-500 uppercase tracking-wider">High Load Warning</h3>
+              </div>
+              {/* Message */}
+              <p className="text-[10px] text-gray-300 leading-relaxed mb-6">
+                You have selected 3 or more profiles for a fighter. This will require extensive data scraping and processing, which may take significantly longer to generate.
+                <br /><br />
+                Are you sure you want to proceed?
+              </p>
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setIsWarningModalOpen(false)}
+                  className="flex-1 py-3 bg-gray-800 border-2 border-gray-600 text-gray-300 text-xs uppercase hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setIsWarningModalOpen(false);
+                    handleSpawn();
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-b from-yellow-600 to-yellow-800 border-2 border-white text-white text-xs uppercase hover:from-yellow-500 hover:to-yellow-700 transition-colors"
+                >
+                  Proceed
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -720,7 +786,7 @@ export default function CharacterSelect() {
             >
               <div className="absolute inset-0 bg-red-800 translate-y-2 translate-x-2 border-4 border-black"></div>
               <motion.button
-                onClick={handleSpawn}
+                onClick={handleSpawnClick}
                 disabled={isLoading}
                 className="relative w-full px-8 py-6 bg-gradient-to-b from-red-500 to-red-700 border-4 border-white text-white text-lg md:text-xl hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-y-1 active:translate-x-1 uppercase disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:translate-x-0"
                 animate={{ 
