@@ -22,8 +22,7 @@ def generate_background_video(prompt: str, match_id: str):
     # Mock result
     video_url = "https://www.w3schools.com/html/mov_bbb.mp4"
     
-    # TODO: Update Supabase match record with new background_state or video_url
-    # supabase.table('matches').update({'fatality_video_url': video_url}).eq('id', match_id).execute()
+    # Future: Store video URL in database for match replay
     
     print(f"Video generated: {video_url}")
     return video_url

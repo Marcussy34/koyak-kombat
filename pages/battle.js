@@ -503,7 +503,7 @@ export default function Battle() {
   useEffect(() => {
     if (!matchId) return;
     const interval = setInterval(async () => {
-      // In a real app, fetch match state from Supabase or API
+      // Future: Poll for async job completion (video generation, etc.)
     }, 5000);
     return () => clearInterval(interval);
   }, [matchId]);
