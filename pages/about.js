@@ -29,7 +29,8 @@ export default function AboutPage() {
 
       {/* Navbar */}
       <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
-        <Link href="/" className="text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)] hover:text-yellow-300 transition-colors">
+        <Link href="/" className="flex items-center gap-2 text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)] hover:text-yellow-300 transition-colors">
+          <img src="/logo.png" alt="Koyak Kombat" className="w-6 h-6 md:w-8 md:h-8" />
           Koyak Kombat
         </Link>
         <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
