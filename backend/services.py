@@ -93,186 +93,14 @@ class SocialDataService:
             print(f"[SocialData] Unexpected error: {e}")
             return {}
     
-    def get_user_tweets(self, username: str, count: int = 5) -> list[dict]:
-        """
-        Get user's recent tweets by username.
-        
-        Args:
-            username: Twitter username without @ symbol
-            count: Number of recent tweets to fetch (default: 5)
-            
-        Returns:
-            List of tweet objects with text, likes, retweets, etc.
-            
-        Note: SocialData.tools may use search or timeline endpoints.
-        If direct user timeline is not available, we return empty list.
-        """
-        if not self.has_key:
-            print(f"[SocialData] No API key, cannot fetch tweets for @{username}")
-            return []
-        
-        # Try to use the user timeline endpoint (if available)
-        # Based on Twitter API v2 structure, this might be at /twitter/user/{username}/tweets
-        url = f"{self.BASE_URL}/twitter/user/{username}/tweets"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json"
-        }
-        
-        # Add query parameters for count/limit
-        params = {
-            "count": count,
-            "max_results": count
-        }
-        
-        try:
-            print(f"[SocialData] Fetching up to {count} recent tweets for @{username}...")
-            response = requests.get(url, headers=headers, params=params, timeout=15)
-            
-            # Handle different status codes
-            if response.status_code == 404:
-                print(f"[SocialData] Tweet timeline endpoint not available for @{username} (404)")
-                print(f"[SocialData] Response body: {response.text[:500]}")
-                print(f"[SocialData] This is normal - SocialData may not support user timelines yet")
-                return []
-            elif response.status_code == 402:
-                print(f"[SocialData] Insufficient credits for fetching tweets")
-                print(f"[SocialData] Response: {response.text}")
-                return []
-            elif response.status_code != 200:
-                print(f"[SocialData] Error fetching tweets: {response.status_code}")
-                print(f"[SocialData] Response: {response.text[:500]}")
-                return []
-            
-            data = response.json()
-            print(f"[SocialData] Raw tweets response: {json.dumps(data, indent=2)}")
-            
-            # Handle different response formats
-            # Format 1: Direct list of tweets
-            if isinstance(data, list):
-                print(f"[SocialData] Got {len(data)} tweets (direct list format)")
-                return self._normalize_tweets(data[:count])
-            
-            # Format 2: Wrapped in a "tweets" or "data" field
-            elif isinstance(data, dict):
-                tweets = data.get("tweets") or data.get("data") or data.get("results")
-                if tweets and isinstance(tweets, list):
-                    print(f"[SocialData] Got {len(tweets)} tweets (wrapped format)")
-                    return self._normalize_tweets(tweets[:count])
-            
-            print(f"[SocialData] Unexpected response format, returning empty list")
-            return []
-            
-        except requests.exceptions.RequestException as e:
-            print(f"[SocialData] Request error fetching tweets: {e}")
-            return []
-        except Exception as e:
-            print(f"[SocialData] Unexpected error fetching tweets: {e}")
-            return []
-    
-    def _normalize_tweets(self, tweets: list[dict]) -> list[dict]:
-        """
-        Normalize tweet data to match expected format.
-        Handles different field names from API responses.
-        
-        Args:
-            tweets: Raw tweet data from API
-            
-        Returns:
-            Normalized tweets with consistent field names
-        """
-        normalized = []
-        
-        for tweet in tweets:
-            # Extract text (try multiple field names)
-            text = (
-                tweet.get("full_text") or
-                tweet.get("text") or
-                tweet.get("content") or
-                ""
-            )
-            
-            # Extract engagement metrics
-            likes = (
-                tweet.get("favorite_count") or
-                tweet.get("likeCount") or
-                tweet.get("likes") or
-                0
-            )
-            
-            retweets = (
-                tweet.get("retweet_count") or
-                tweet.get("retweetCount") or
-                tweet.get("retweets") or
-                0
-            )
-            
-            # Only add tweets that have text
-            if text:
-                normalized.append({
-                    "text": text,
-                    "likeCount": likes,
-                    "retweetCount": retweets
-                })
-        
-        return normalized
-    
     def format_profile_for_profiler(self, profile: dict) -> list[dict]:
         """
-        Convert SocialData user profile into tweet-like format
-        that matches the existing profiler expectations.
-        
-        Args:
-            profile: User profile from get_user_profile()
-            
-        Returns:
-            List of pseudo-tweets containing profile info
+        Pass raw profile data to profiler.
         """
         if not profile:
             return []
-        
-        # Create synthetic "tweets" from profile information
-        # This maintains compatibility with existing code that expects tweet-like data
-        pseudo_tweets = []
-        
-        # Tweet 1: Profile summary
-        name = profile.get("name", "Unknown")
-        screen_name = profile.get("screen_name", "unknown")
-        description = profile.get("description", "")
-        verified = profile.get("verified", False)
-        verified_badge = "✓ Verified" if verified else ""
-        
-        summary_text = f"{name} (@{screen_name}) {verified_badge}\nBio: {description}"
-        pseudo_tweets.append({
-            "text": summary_text,
-            "likeCount": 0,
-            "retweetCount": 0
-        })
-        
-        # Tweet 2: Social stats (useful for understanding influence)
-        followers = profile.get("followers_count", 0)
-        following = profile.get("friends_count", 0)
-        tweets_count = profile.get("statuses_count", 0)
-        
-        stats_text = f"Social Stats: {followers:,} followers, {following:,} following, {tweets_count:,} tweets posted"
-        pseudo_tweets.append({
-            "text": stats_text,
-            "likeCount": 0,
-            "retweetCount": 0
-        })
-        
-        # Tweet 3: Account age and engagement
-        created_at = profile.get("created_at", "Unknown")
-        listed_count = profile.get("listed_count", 0)
-        
-        engagement_text = f"Account created: {created_at}. Listed in {listed_count:,} lists."
-        pseudo_tweets.append({
-            "text": engagement_text,
-            "likeCount": 0,
-            "retweetCount": 0
-        })
-        
-        return pseudo_tweets
+        # Return raw profile wrapped in list
+        return [profile]
 
 # --- Multi-Platform Scraper Service ---
 # Lightweight Apify actors with low maxItems for cost efficiency (~$0.01-0.02/fighter)
@@ -390,24 +218,9 @@ class MultiPlatformScraperService:
             profile = self.socialdata.get_user_profile(username)
             
             if profile:
-                # Step 2: Start with profile summary (3 synthetic tweets)
+                # Return raw profile data (wrapped in list for compatibility)
                 formatted_data = self.socialdata.format_profile_for_profiler(profile)
-                
-                # Step 3: Fetch real tweets (top 5 most recent)
-                real_tweets = self.socialdata.get_user_tweets(username, count=5)
-                
-                if real_tweets:
-                    print(f"[Twitter] Successfully fetched {len(real_tweets)} real tweets for @{username}")
-                    print(f"[Twitter] Sample tweet: {real_tweets[0] if real_tweets else 'None'}")
-                    # Add real tweets after profile info
-                    formatted_data.extend(real_tweets)
-                else:
-                    print(f"[Twitter] No real tweets available, using profile data only")
-                
-                print(f"[Twitter] Total data for @{username}: {len(formatted_data)} items (profile + tweets)")
-                print(f"[Twitter] Final formatted data sample (first 2 items):")
-                for i, item in enumerate(formatted_data[:2]):
-                    print(f"  Item {i+1}: {json.dumps(item, indent=4)}")
+                print(f"[Twitter] Got profile data for @{username}")
                 return formatted_data
             else:
                 print(f"[Twitter] Could not fetch profile for @{username}, using mock data")
@@ -569,7 +382,8 @@ class LLMService:
         INSTRUCTIONS:
         1. Adopt your persona completely. Use your specific slang, insecurities, and writing style.
         2. Attack the opponent based on the "TARGET" info provided above. Be hyper-specific about their known traits.
-        3. Respond with a short, brutal roast (max 2 sentences).
+        3. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
+        4. Humor is key. Make the audience laugh while destroying the opponent.
         
         Return JSON format ONLY:
         {{

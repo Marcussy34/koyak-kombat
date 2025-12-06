@@ -141,6 +141,7 @@ async def create_fighter(fighter: FighterCreate):
     print(f"Aggregated context length: {len(aggregated_context)} chars")
     
     # 4. Pass to Profiler LLM for structured persona synthesis
+    print(f"[Profiler] Passing {len(aggregated_context)} chars of context to LLM for persona synthesis...")
     persona = profiler.generate_persona(aggregated_context, detected_name)
     persona_dict = profiler.persona_to_dict(persona)
     

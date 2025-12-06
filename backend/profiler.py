@@ -48,50 +48,59 @@ class ProfileAggregator:
     def normalize_twitter(raw_data: list[dict]) -> str:
         """
         Normalize Twitter scraper output.
-        Handles multiple field name formats from different Apify actors.
+        Handles raw profile object from SocialData.tools.
         """
         if not raw_data:
             return "No Twitter data available."
         
-        # Debug: print first item's keys to see actual field names
-        if raw_data:
-            print(f"[DEBUG] Twitter data keys: {list(raw_data[0].keys())[:10]}")
-        
+        # Check if it's a raw profile object (wrapped in list)
+        first_item = raw_data[0]
+        if "screen_name" in first_item or "description" in first_item:
+            profile = first_item
+            parts = []
+            
+            # Basic Info
+            name = profile.get("name", "Unknown")
+            handle = profile.get("screen_name", "unknown")
+            bio = profile.get("description", "No bio.")
+            location = profile.get("location", "")
+            created_at = profile.get("created_at", "")
+            
+            parts.append(f"Name: {name} (@{handle})")
+            parts.append(f"Bio: {bio}")
+            if location:
+                parts.append(f"Location: {location}")
+            if created_at:
+                parts.append(f"Account Created: {created_at}")
+                
+            # Stats
+            followers = profile.get("followers_count", 0)
+            following = profile.get("friends_count", 0)
+            tweets = profile.get("statuses_count", 0)
+            likes = profile.get("favourites_count", 0)
+            
+            parts.append(f"Stats: {followers:,} Followers, {following:,} Following, {tweets:,} Tweets, {likes:,} Likes")
+            
+            # Verification
+            if profile.get("verified"):
+                parts.append("Status: Verified Account")
+                
+            return "TWITTER PROFILE:\n" + "\n".join(parts)
+
+        # Fallback for legacy tweet list format
         posts = []
-        for tweet in raw_data[:15]:  # Limit to 15 tweets
-            # Try multiple possible field names for tweet text
+        for tweet in raw_data[:15]:
             text = (
                 tweet.get("text") or 
                 tweet.get("full_text") or 
                 tweet.get("fullText") or
                 tweet.get("content") or
-                tweet.get("tweet") or
                 ""
             )
-            
-            # Try multiple possible field names for likes
-            likes = (
-                tweet.get("likeCount") or 
-                tweet.get("favorite_count") or 
-                tweet.get("favorites") or
-                tweet.get("likes") or
-                0
-            )
-            
-            # Try multiple possible field names for retweets  
-            retweets = (
-                tweet.get("retweetCount") or 
-                tweet.get("retweet_count") or 
-                tweet.get("retweets") or
-                0
-            )
-            
             if text:
-                posts.append(f"Tweet ({likes} likes, {retweets} RTs): {text}")
+                posts.append(f"Tweet: {text}")
         
-        result = "TWITTER POSTS:\n" + "\n---\n".join(posts) if posts else "No Twitter data available."
-        print(f"[DEBUG] Normalized {len(posts)} tweets, total length: {len(result)}")
-        return result
+        return "TWITTER POSTS:\n" + "\n---\n".join(posts) if posts else "No Twitter data available."
     
     @staticmethod
     def normalize_instagram(raw_data: dict) -> str:
@@ -258,6 +267,7 @@ Return JSON format ONLY:
 """
         
         try:
+            print(f"[Profiler] Sending request to LLM ({self.model})...")
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -268,6 +278,7 @@ Return JSON format ONLY:
             )
             
             content = response.choices[0].message.content
+            print(f"[Profiler] Received response from LLM. Parsing JSON...")
             data = json.loads(content)
             
             # Handle case where LLM returns a list instead of dict
