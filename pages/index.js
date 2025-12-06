@@ -48,12 +48,14 @@ export default function LandingPage() {
               KOYAK
             </span>
             <br/>
-            <span 
-              className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600"
+            <motion.span 
+              className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 inline-block"
               style={{ filter: 'drop-shadow(4px 4px 0 rgba(180,83,9,1)) drop-shadow(0 0 15px rgba(234,179,8,0.8))' }}
+              animate={{ x: [0, -3, 0, 3, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
               KOMBAT
-            </span>
+            </motion.span>
           </motion.h1>
           
           <motion.p 
