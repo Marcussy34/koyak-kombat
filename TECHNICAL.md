@@ -574,7 +574,7 @@ flowchart TB
 | **OpenRouter** | GPT-4o, Gemini, Claude routing | OpenAI-compatible |
 | **Groq** | Fast Llama inference | OpenAI-compatible |
 | **ElevenLabs** | Text-to-Speech | REST API |
-| **Vertex AI / Veo 3** | Video generation | Google Cloud |
+| **Vertex AI / Veo 3** | Finishing move video generation | Google Cloud |
 
 ---
 
