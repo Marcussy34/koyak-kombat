@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
+import dynamic from 'next/dynamic';
 import { api } from '../lib/api';
 import { Sword, Skull, Zap, Scale, Gavel, Flame, X, ScrollText } from 'lucide-react';
+
+// Dynamic import for FinishingMoveDrawer (tldraw requires browser APIs)
+const FinishingMoveDrawer = dynamic(
+  () => import('../components/FinishingMoveDrawer'),
+  { ssr: false }
+);
 
 export default function Battle() {
   // Helper to get the correct image based on gender and side
@@ -38,6 +45,8 @@ export default function Battle() {
   const [fighter2Health, setFighter2Health] = useState(100);
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [loser, setLoser] = useState(null);
+  const [showFinishingMove, setShowFinishingMove] = useState(false);
   const [damageOverlay, setDamageOverlay] = useState(null); // { amount, target: 'fighter1' | 'fighter2' }
   const [lastTurnStats, setLastTurnStats] = useState(null);
   const [fighter1, setFighter1] = useState(null);
@@ -399,8 +408,12 @@ export default function Battle() {
 
             // Check Game Over AFTER the delay so user can read the final roast
             if (fighter1HealthRef.current <= 0 || fighter2HealthRef.current <= 0) {
-              setGameOver(true);
-              setWinner(fighter1HealthRef.current > 0 ? fighter1 : fighter2);
+              // Determine winner and loser
+              const theWinner = fighter1HealthRef.current > 0 ? fighter1 : fighter2;
+              const theLoser = fighter1HealthRef.current > 0 ? fighter2 : fighter1;
+              
+              setWinner(theWinner);
+              setLoser(theLoser);
               setIsFighting(false);
               isFightingRef.current = false;
               
@@ -410,12 +423,8 @@ export default function Battle() {
                 bgmRef.current.currentTime = 0;
               }
 
-              // Play Victory Music
-              if (!victoryAudioRef.current) {
-                victoryAudioRef.current = new Audio("/music/victorysong.mp3");
-                victoryAudioRef.current.volume = 0.3; // 50% softer
-              }
-              victoryAudioRef.current.play().catch(e => console.error("Victory music play failed", e));
+              // Show Finishing Move Drawing Screen FIRST (before game over)
+              setShowFinishingMove(true);
 
               return; 
             }
@@ -469,6 +478,25 @@ export default function Battle() {
     }, 5000);
     return () => clearInterval(interval);
   }, [matchId]);
+
+  // Handle when finishing move drawing is complete
+  const handleFinishingMoveComplete = (analysis) => {
+    setShowFinishingMove(false);
+    setGameOver(true);
+    
+    // Log the AI analysis result
+    if (analysis) {
+      console.log('[Battle] Finishing Move Analysis:', analysis);
+      console.log(`[Battle] Move: ${analysis.intent} | Style: ${analysis.style} | Damage Modifier: ${analysis.damage_modifier}x`);
+    }
+    
+    // Play Victory Music now (after drawing phase)
+    if (!victoryAudioRef.current) {
+      victoryAudioRef.current = new Audio("/music/victorysong.mp3");
+      victoryAudioRef.current.volume = 0.3;
+    }
+    victoryAudioRef.current.play().catch(e => console.error("Victory music play failed", e));
+  };
 
   const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
 
@@ -717,16 +745,39 @@ export default function Battle() {
         </div>
       )}
 
+      {/* Finishing Move Drawing Screen */}
+      {showFinishingMove && (
+        <FinishingMoveDrawer 
+          winner={winner}
+          loser={loser}
+          onComplete={handleFinishingMoveComplete}
+        />
+      )}
+
       {/* Start / Game Over Overlay */}
-      {(!isFighting || gameOver) && (
+      {(!isFighting || gameOver) && !showFinishingMove && (
         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
           {!isFighting && !gameOver ? (
-            <button 
-              onClick={handleStartFight}
-              className="px-12 py-6 bg-red-600 hover:bg-red-700 text-white text-2xl md:text-4xl border-4 border-white shadow-[0_0_20px_rgba(220,38,38,0.6)] hover:scale-110 transition-transform uppercase tracking-widest animate-pulse"
-            >
-              FIGHT!
-            </button>
+            <div className="flex flex-col gap-4 items-center">
+              <button 
+                onClick={handleStartFight}
+                className="px-12 py-6 bg-red-600 hover:bg-red-700 text-white text-2xl md:text-4xl border-4 border-white shadow-[0_0_20px_rgba(220,38,38,0.6)] hover:scale-110 transition-transform uppercase tracking-widest animate-pulse"
+              >
+                FIGHT!
+              </button>
+              {/* DEBUG: Skip to finishing move - REMOVE LATER */}
+              <button 
+                onClick={() => {
+                  // Set mock winner/loser and trigger finishing move
+                  setWinner(fighter1 || { name: 'Test Winner', gender: 'male' });
+                  setLoser(fighter2 || { name: 'Test Loser', gender: 'male' });
+                  setShowFinishingMove(true);
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs border-2 border-white uppercase opacity-50 hover:opacity-100"
+              >
+                [DEBUG] Skip to Finish
+              </button>
+            </div>
           ) : (
             <div className="text-center space-y-8 animate-in zoom-in duration-500">
               <div className="text-6xl md:text-8xl text-yellow-500 font-black drop-shadow-[4px_4px_0_red]">
