@@ -310,9 +310,15 @@ Each roast is scored by an independent AI Judge on three criteria:
 | **Creativity** | 30% | Unique burns hit harder than clichés |
 | **Accuracy** | 40% | Roasts based on real profile content deal extra damage |
 
-**Formula:** `Final Damage = AI Score × 0.6 × Speed Multiplier`
+**Formula:** 
+
+1. Judge AI calculates weighted score: `(Specificity × 0.3) + (Creativity × 0.3) + (Accuracy × 0.4)` = Base Score (0-100)
+2. Base Damage = `Base Score × 0.6` (scales to max 60 damage per turn)
+3. Final Damage = `Base Damage × Speed Multiplier`
 
 ### Speed Bonuses
+
+Response time affects damage output:
 
 | Response Time | Modifier |
 | :--- | :---: |
