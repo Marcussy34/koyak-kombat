@@ -183,7 +183,7 @@ sequenceDiagram
         API->>V: generate_audio(text, voice_id)
         V->>ElevenLabs: TTS (Turbo v2.5)
         ElevenLabs-->>V: MP3 base64
-        V-->>API: "data:audio/mpeg;base64,..."
+        V-->>API: Base64 audio data URL
     end
     
     API-->>FE: {text, audio_url, duration_ms}
