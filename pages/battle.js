@@ -250,19 +250,41 @@ export default function Battle() {
 
         setChatHistory(prev => [...prev, tempMsg]);
 
-        // STREAM THE ROAST TEXT (2 seconds total)
+        // STREAM THE ROAST TEXT (2 seconds total) - Smooth RAF-based streaming
         const fullText = genResponse.text;
         const streamDuration = 2000; // Always 2 seconds
-        const charDelay = streamDuration / fullText.length;
         
         setDisplayedText('');
         setHighlightedFighter(currentTurn); // Start animation
         setIsStreaming(true);
         
-        for (let i = 0; i <= fullText.length; i++) {
-          setDisplayedText(fullText.slice(0, i));
-          await new Promise(r => setTimeout(r, charDelay));
-        }
+        // Use requestAnimationFrame for smooth 60fps streaming
+        await new Promise((resolve) => {
+          const startTime = performance.now();
+          
+          const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / streamDuration, 1);
+            
+            // Easing function: ease-out-cubic for natural typing feel
+            // Starts faster, slows down at the end (like natural reading)
+            const easedProgress = 1 - Math.pow(1 - progress, 3);
+            
+            // Calculate how many characters to show based on eased progress
+            const charCount = Math.floor(easedProgress * fullText.length);
+            setDisplayedText(fullText.slice(0, charCount));
+            
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              // Ensure we show the full text at the end
+              setDisplayedText(fullText);
+              resolve();
+            }
+          };
+          
+          requestAnimationFrame(animate);
+        });
         
         setIsStreaming(false);
         
