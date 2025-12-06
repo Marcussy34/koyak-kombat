@@ -101,16 +101,91 @@ export default async function handler(req, res) {
 
     console.log(`[GenerateFinishingVideo] Image ready: ${base64Image.length} chars, type: ${mimeType}`);
 
-    // Create the prompt for video generation - VERY safe language to avoid filters
-    // Focus on "victory celebration" but still show clear winner/loser outcome
-    const safeDescription = description
-      .replace(/attack|kill|blood|gore|violent|devastating|kick|punch|strike|hit|slam|crush|smash/gi, 'move')
-      .replace(/opponent|enemy/gi, 'other character')
-      .replace(/head|face|body/gi, 'direction');
+    // ========================================================
+    // STEP 1: Use GPT-4o-mini to sanitize the prompt
+    // This ensures the description is rewritten in safe language
+    // that won't trigger Veo 3's content filters
+    // ========================================================
     
-    const prompt = `Create a short animated video based on this retro arcade game screenshot. Keep the EXACT same characters, background, art style, and colors. Animate ${winner} doing a dramatic "${intent}" winning move. ${safeDescription}. Show ${loser} reacting by falling down or stumbling in defeat. Keep the characters IDENTICAL - same faces, outfits, proportions. End with ${winner} standing triumphantly as the clear victor while ${loser} is on the ground defeated. This is a classic arcade game victory animation.`;
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterApiKey) {
+      console.error('[GenerateFinishingVideo] OPENROUTER_API_KEY not found');
+      return res.status(500).json({ error: 'OpenRouter API key not configured' });
+    }
 
-    console.log('[GenerateFinishingVideo] Prompt:', prompt);
+    // Create the raw prompt that needs sanitization
+    const rawPrompt = `${winner} performs a "${intent}" finishing move on ${loser}. ${description}. ${loser} is defeated.`;
+    
+    console.log('[GenerateFinishingVideo] Raw prompt (before sanitization):', rawPrompt);
+
+    // System prompt for sanitization - keep the action but tone down violence
+    const sanitizationSystemPrompt = `You are a prompt rewriter for a video generation AI that creates retro arcade game animations.
+
+Your job is to take a "finishing move" description and rewrite it in STYLIZED, ARCADE-GAME language that avoids explicit violence but KEEPS the action.
+
+RULES:
+1. KEEP the core action (kicks, punches, uppercuts, etc.) - these are fine in arcade game context
+2. REMOVE brutal adjectives like: devastating, brutal, violent, blood, gore, gruesome, savage, deadly, lethal, crushing
+3. ADD stylized/arcade descriptors like: stylized, dramatic, powerful, swift, classic arcade-style
+4. The loser CAN be "knocked out" or "defeated" - this is normal arcade game language
+5. Frame it as a CLASSIC ARCADE GAME finishing move, like Street Fighter or Mortal Kombat (but without gore)
+6. Keep the same characters and action, just make language appropriate for a T-rated game
+7. Output ONLY the rewritten prompt, nothing else. No explanations.
+
+EXAMPLE:
+Input: "Mario performs a devastating flying kick finishing move on Luigi. Luigi is brutally knocked out."
+Output: "Mario performs a dramatic flying kick in classic arcade style. Luigi is knocked back and falls to the ground in defeat. Mario lands in a triumphant victory pose as the K.O. text appears."`;
+
+    // Call GPT-4o-mini via OpenRouter for sanitization
+    console.log('[GenerateFinishingVideo] Calling GPT-4o-mini for prompt sanitization...');
+    
+    const sanitizeResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://koyak-kombat.vercel.app',
+        'X-Title': 'Koyak Kombat',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [
+          { role: 'system', content: sanitizationSystemPrompt },
+          { role: 'user', content: rawPrompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!sanitizeResponse.ok) {
+      const errorText = await sanitizeResponse.text();
+      console.error('[GenerateFinishingVideo] Sanitization API error:', errorText);
+      // Fall back to basic regex sanitization if API fails
+      console.log('[GenerateFinishingVideo] Falling back to regex sanitization...');
+    }
+
+    let sanitizedDescription;
+    
+    if (sanitizeResponse.ok) {
+      const sanitizeData = await sanitizeResponse.json();
+      sanitizedDescription = sanitizeData.choices?.[0]?.message?.content?.trim();
+      console.log('[GenerateFinishingVideo] Sanitized by GPT-4o-mini:', sanitizedDescription);
+    }
+    
+    // Fallback: basic regex sanitization if API failed
+    if (!sanitizedDescription) {
+      sanitizedDescription = description
+        .replace(/attack|kill|blood|gore|violent|devastating|kick|punch|strike|hit|slam|crush|smash|knock|hurt|pain|damage|destroy/gi, 'celebration')
+        .replace(/opponent|enemy|victim/gi, 'other player')
+        .replace(/defeat|knocked out|unconscious/gi, 'impressed');
+      console.log('[GenerateFinishingVideo] Using fallback regex sanitization:', sanitizedDescription);
+    }
+
+    // Create the final safe prompt for Veo 3 - arcade game style K.O. finish
+    const prompt = `Create a short animated video based on this retro arcade game screenshot. Keep the EXACT same characters, background, art style, and colors. This is a CLASSIC ARCADE GAME K.O. FINISH: ${sanitizedDescription}. ${winner} wins and ${loser} is knocked out. Style it like a Street Fighter or classic fighting game victory screen. End with ${winner} in a victory pose. This is stylized arcade game action, not realistic violence.`;
+
+    console.log('[GenerateFinishingVideo] Final Veo 3 Prompt:', prompt);
 
     // Call Veo 3 API via REST - using official request format
     // Reference: https://cloud.google.com/vertex-ai/generative-ai/docs/video/use-reference-images-to-guide-video-generation
