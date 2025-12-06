@@ -183,7 +183,7 @@ sequenceDiagram
         API->>V: generate_audio(text, voice_id)
         V->>ElevenLabs: TTS (Turbo v2.5)
         ElevenLabs-->>V: MP3 base64
-        V-->>API: data:audio/mpeg;base64,...
+        V-->>API: "data:audio/mpeg;base64,..."
     end
     
     API-->>FE: {text, audio_url, duration_ms}
@@ -519,8 +519,8 @@ flowchart LR
     end
     
     subgraph Next["Next.js API Routes"]
-        N1[/api/analyze-finishing-move]
-        N2[/api/generate-finishing-video]
+        N1["/api/analyze-finishing-move"]
+        N2["/api/generate-finishing-video"]
     end
     
     F1 --> E2
