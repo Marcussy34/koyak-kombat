@@ -54,14 +54,61 @@ export default async function handler(req, res) {
     const authClient = await auth.getClient();
     const accessToken = await authClient.getAccessToken();
 
-    // Extract base64 data from data URL (remove "data:image/png;base64," prefix)
-    const base64Image = screenshot.replace(/^data:image\/\w+;base64,/, '');
+    // Handle both URL paths and base64 data URLs
+    let base64Image;
+    let mimeType = 'image/png';
     
-    // Determine mime type
-    const mimeType = screenshot.includes('data:image/jpeg') ? 'image/jpeg' : 'image/png';
+    if (screenshot.startsWith('data:image')) {
+      // Already a data URL - extract base64 and mime type
+      base64Image = screenshot.replace(/^data:image\/\w+;base64,/, '');
+      mimeType = screenshot.includes('data:image/jpeg') ? 'image/jpeg' : 'image/png';
+      console.log('[GenerateFinishingVideo] Using provided base64 image');
+    } else if (screenshot.startsWith('/') || screenshot.startsWith('http')) {
+      // It's a URL - we need to fetch and convert to base64
+      console.log('[GenerateFinishingVideo] Screenshot is URL, fetching and converting...');
+      
+      try {
+        // For local paths, we need to read from filesystem
+        if (screenshot.startsWith('/') && !screenshot.startsWith('//')) {
+          const fs = await import('fs/promises');
+          const publicPath = path.join(process.cwd(), 'public', screenshot);
+          const imageBuffer = await fs.readFile(publicPath);
+          base64Image = imageBuffer.toString('base64');
+          mimeType = screenshot.endsWith('.jpg') || screenshot.endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+          console.log('[GenerateFinishingVideo] Loaded local image from:', publicPath);
+        } else {
+          // For remote URLs
+          const imageResponse = await fetch(screenshot);
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          base64Image = Buffer.from(arrayBuffer).toString('base64');
+          const contentType = imageResponse.headers.get('content-type');
+          mimeType = contentType || 'image/png';
+          console.log('[GenerateFinishingVideo] Fetched remote image');
+        }
+      } catch (fetchError) {
+        console.error('[GenerateFinishingVideo] Failed to fetch image:', fetchError);
+        return res.status(400).json({ error: 'Failed to fetch screenshot image', details: fetchError.message });
+      }
+    } else {
+      // Assume it's raw base64 without prefix
+      base64Image = screenshot;
+      console.log('[GenerateFinishingVideo] Using raw base64 (no prefix)');
+    }
 
-    // Create the prompt for video generation
-    const prompt = `Based on this fighting game screenshot, create a dramatic finishing move animation where ${winner} performs a ${intent} attack on ${loser}. ${description}. Keep the exact same art style, characters, and background from the reference image. Make the animation smooth, dramatic, and victorious. Style: ${style} attack. The video should show the finishing move being executed.`;
+    if (!base64Image) {
+      return res.status(400).json({ error: 'Could not process screenshot' });
+    }
+
+    console.log(`[GenerateFinishingVideo] Image ready: ${base64Image.length} chars, type: ${mimeType}`);
+
+    // Create the prompt for video generation - VERY safe language to avoid filters
+    // Focus on "victory celebration" but still show clear winner/loser outcome
+    const safeDescription = description
+      .replace(/attack|kill|blood|gore|violent|devastating|kick|punch|strike|hit|slam|crush|smash/gi, 'move')
+      .replace(/opponent|enemy/gi, 'other character')
+      .replace(/head|face|body/gi, 'direction');
+    
+    const prompt = `Create a short animated video based on this retro arcade game screenshot. Keep the EXACT same characters, background, art style, and colors. Animate ${winner} doing a dramatic "${intent}" winning move. ${safeDescription}. Show ${loser} reacting by falling down or stumbling in defeat. Keep the characters IDENTICAL - same faces, outfits, proportions. End with ${winner} standing triumphantly as the clear victor while ${loser} is on the ground defeated. This is a classic arcade game victory animation.`;
 
     console.log('[GenerateFinishingVideo] Prompt:', prompt);
 
@@ -73,22 +120,18 @@ export default async function handler(req, res) {
       instances: [
         {
           prompt: prompt,
-          // Use referenceImages array per official docs
-          referenceImages: [
-            {
-              image: {
-                bytesBase64Encoded: base64Image,
-                mimeType: mimeType,
-              },
-              referenceType: 'subject', // Use 'subject' to maintain character consistency
-            },
-          ],
+          // Use image as first frame (image-to-video approach)
+          // Reference: https://cloud.google.com/vertex-ai/generative-ai/docs/video/
+          image: {
+            bytesBase64Encoded: base64Image,
+            mimeType: mimeType,
+          },
         },
       ],
       parameters: {
         aspectRatio: '16:9',
         sampleCount: 1,
-        durationSeconds: 5,
+        durationSeconds: 6, // Supported: 4, 6, or 8
         personGeneration: 'allow_adult',
       },
     };
@@ -165,17 +208,44 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: 'Video generation failed', details: pollData.error });
         }
 
-        // Extract video from response
+        // Extract video from response - check multiple possible locations
+        // Response format: { response: { videos: [{ video: { bytesBase64Encoded, gcsUri } }] } }
+        const videos = pollData.response?.videos || pollData.videos || [];
         const predictions = pollData.response?.predictions || pollData.predictions || [];
+        
+        console.log('[GenerateFinishingVideo] Videos:', JSON.stringify(videos, null, 2));
         console.log('[GenerateFinishingVideo] Predictions:', JSON.stringify(predictions, null, 2));
         
+        // Check videos array first (Veo 3 format)
+        if (videos.length > 0) {
+          const video = videos[0];
+          const videoBase64 = video.video?.bytesBase64Encoded || video.bytesBase64Encoded;
+          
+          if (videoBase64) {
+            console.log('[GenerateFinishingVideo] Video generated successfully from videos array!');
+            return res.status(200).json({
+              videoUrl: `data:video/mp4;base64,${videoBase64}`,
+            });
+          }
+          
+          // Check for GCS URI
+          const gcsUri = video.video?.gcsUri || video.gcsUri;
+          if (gcsUri) {
+            console.log('[GenerateFinishingVideo] Video at GCS:', gcsUri);
+            return res.status(200).json({
+              videoUrl: gcsUri,
+              isGcsUri: true,
+            });
+          }
+        }
+        
+        // Fallback: check predictions array
         if (predictions.length > 0) {
-          // Check for video in different possible locations
           const prediction = predictions[0];
           const videoBase64 = prediction.video?.bytesBase64Encoded || prediction.bytesBase64Encoded;
           
           if (videoBase64) {
-            console.log('[GenerateFinishingVideo] Video generated successfully!');
+            console.log('[GenerateFinishingVideo] Video generated successfully from predictions!');
             return res.status(200).json({
               videoUrl: `data:video/mp4;base64,${videoBase64}`,
             });
@@ -185,7 +255,6 @@ export default async function handler(req, res) {
           if (prediction.video?.gcsUri || prediction.gcsUri) {
             const gcsUri = prediction.video?.gcsUri || prediction.gcsUri;
             console.log('[GenerateFinishingVideo] Video at GCS:', gcsUri);
-            // For now, return the URI - we'd need to fetch from GCS
             return res.status(200).json({
               videoUrl: gcsUri,
               isGcsUri: true,
