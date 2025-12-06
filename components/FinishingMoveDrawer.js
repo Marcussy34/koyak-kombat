@@ -18,13 +18,19 @@ const Tldraw = dynamic(
  * - "FINISH HIM/HER!" intro animation
  * - 30 second countdown timer
  * - tldraw canvas for drawing
+ * - AI analyzes drawing intent
+ * - Generates video with Veo 3
  * - Matches retro arcade theme
  */
-export default function FinishingMoveDrawer({ winner, loser, onComplete }) {
-  const [phase, setPhase] = useState('intro'); // 'intro' | 'drawing' | 'analyzing'
+export default function FinishingMoveDrawer({ winner, loser, battleScreenshot, onComplete }) {
+  // Phases: intro → drawing → analyzing → generating → playing → complete
+  const [phase, setPhase] = useState('intro');
   const [timeLeft, setTimeLeft] = useState(30);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [generationProgress, setGenerationProgress] = useState('');
   const editorRef = useRef(null);
+  const videoRef = useRef(null);
 
   // Intro animation - show "FINISH HIM/HER!" for 2 seconds
   useEffect(() => {
@@ -143,21 +149,60 @@ export default function FinishingMoveDrawer({ winner, loser, onComplete }) {
       console.log('[FinishingMoveDrawer] AI Analysis:', analysis);
       
       setAnalysisResult(analysis);
+
+      // ------- VIDEO GENERATION PHASE -------
+      if (battleScreenshot) {
+        setPhase('generating');
+        setGenerationProgress('Initializing Veo 3...');
+        
+        try {
+          console.log('[FinishingMoveDrawer] Generating video with Veo 3...');
+          
+          const videoResponse = await fetch('/api/generate-finishing-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              screenshot: battleScreenshot,
+              intent: analysis.intent,
+              description: analysis.description,
+              style: analysis.style,
+              winner: winner?.name || 'Unknown',
+              loser: loser?.name || 'Unknown',
+            }),
+          });
+
+          if (videoResponse.ok) {
+            const videoData = await videoResponse.json();
+            console.log('[FinishingMoveDrawer] Video generated:', videoData);
+            
+            if (videoData.videoUrl) {
+              setVideoUrl(videoData.videoUrl);
+              setPhase('playing');
+              return; // Wait for video to finish playing
+            }
+          } else {
+            console.error('[FinishingMoveDrawer] Video generation failed');
+          }
+        } catch (videoError) {
+          console.error('[FinishingMoveDrawer] Video error:', videoError);
+        }
+      }
       
-      // Pass the analysis result back via onComplete
+      // If no video or video failed, just complete
       if (onComplete) {
         onComplete(analysis);
       }
     } catch (error) {
       console.error('[FinishingMoveDrawer] Error:', error);
       // Fallback response
+      const fallback = {
+        intent: 'MYSTERY STRIKE',
+        description: `${winner?.name} unleashes an incomprehensible but devastating attack!`,
+        style: 'unknown',
+        damage_modifier: 1.2,
+      };
       if (onComplete) {
-        onComplete({
-          intent: 'MYSTERY STRIKE',
-          description: `${winner?.name} unleashes an incomprehensible but devastating attack!`,
-          style: 'unknown',
-          damage_modifier: 1.2,
-        });
+        onComplete(fallback);
       }
     }
   };
