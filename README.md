@@ -76,9 +76,12 @@
 
 * Node.js 18+
 * Python 3.10+
-* Redis (for background jobs)
 
-### 1. Clone & Install
+---
+
+### Local Development
+
+#### 1. Clone & Install
 
 ```bash
 git clone https://github.com/yourusername/koyak-kombat.git
@@ -94,10 +97,15 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+#### 2. Configure Environment
 
-Create a `.env.local` file in the `backend/` directory:
+**Frontend** (root `.env.local`):
+```env
+OPENROUTER_API_KEY=sk-or-...
+GOOGLE_CREDENTIALS_JSON={"type":"service_account",...}  # Optional, for video gen
+```
 
+**Backend** (`backend/.env.local`):
 ```env
 # Required for AI model inference
 OPENROUTER_API_KEY=sk-or-...
@@ -120,9 +128,7 @@ VERTEX_AI_LOCATION=us-central1
 GOOGLE_APPLICATION_CREDENTIALS=path/to/vertex-ai-key.json
 ```
 
-> **Note**: See `backend/SOCIALDATA_INTEGRATION.md` for detailed API setup instructions.
-
-### 3. Run the App
+#### 3. Run Locally
 
 ```bash
 # Terminal 1: Backend API
@@ -135,6 +141,46 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) and enter the arena!
+
+---
+
+### 🚀 Production Deployment
+
+#### Frontend → Vercel
+
+1. Push your repo to GitHub
+2. Go to [vercel.com/new](https://vercel.com/new) → Import your repo
+3. Add environment variables:
+   | Key | Value |
+   |-----|-------|
+   | `OPENROUTER_API_KEY` | Your OpenRouter API key |
+   | `GOOGLE_CREDENTIALS_JSON` | Your `vertex-ai-key.json` as single-line JSON |
+   | `NEXT_PUBLIC_API_URL` | Your backend URL (add after backend deploys) |
+4. Deploy!
+
+#### Backend → Render
+
+1. Go to [render.com](https://render.com) → New Web Service
+2. Connect your GitHub repo
+3. Configure:
+   | Setting | Value |
+   |---------|-------|
+   | **Root Directory** | `backend` |
+   | **Build Command** | `pip install -r requirements.txt` |
+   | **Start Command** | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+4. Add environment variables:
+   | Key | Required For |
+   |-----|--------------|
+   | `OPENROUTER_API_KEY` | AI roast generation |
+   | `ELEVENLABS_API_KEY` | Voice synthesis |
+   | `APIFY_API_TOKEN` | Instagram, LinkedIn, Facebook scraping |
+   | `GROQ_API_KEY` | Groq-hosted models (Llama) |
+   | `SOCIALDATA_API_KEY` | Twitter/X scraping |
+5. Deploy and copy your URL (e.g., `https://your-app.onrender.com`)
+6. Go back to Vercel → Add `NEXT_PUBLIC_API_URL=https://your-app.onrender.com/api/v1`
+7. Redeploy Vercel
+
+> ⚠️ **Note**: First request after inactivity will take ~50 seconds (Render free tier spin-up). After that, it'll be fast.
 
 ---
 
