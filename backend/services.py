@@ -119,7 +119,7 @@ class MultiPlatformScraperService:
     # Instagram and LinkedIn still use Apify actors
     ACTORS = {
         "instagram": "apify/instagram-profile-scraper",   # No browser, fast
-        "linkedin": "curious_coder/linkedin-profile-scraper",  # No cookies required
+        "linkedin": "apimaestro/linkedin-profile-detail",  # $5/1000 profiles, no cookies required
         "facebook_pages": "apify/facebook-pages-scraper",  # Page info, likes, followers
         "facebook_posts": "apify/facebook-posts-scraper",  # Recent posts with engagement
     }
@@ -278,29 +278,49 @@ class MultiPlatformScraperService:
             print(f"[Instagram] Error: {e}")
             return {"biography": f"Error scraping @{username}.", "posts": []}
     
-    def scrape_linkedin(self, username: str) -> dict:
+    def scrape_linkedin(self, username_or_url: str) -> dict:
         """
-        Scrape LinkedIn profile.
-        Returns profile object with headline, summary, experience.
+        Scrape LinkedIn profile using apimaestro/linkedin-profile-detail.
+        Returns profile object with work experience, education, certifications.
+        
+        Args:
+            username_or_url: LinkedIn username or full profile URL
+        
+        Actor: apimaestro/linkedin-profile-detail
+        Cost: $5.00 / 1,000 profiles
+        
+        IMPORTANT: Actor expects "username" parameter (just the username part),
+        NOT a full URL. Default is "sarptecimer" if not provided.
         """
-        print(f"[LinkedIn] Scraping {username}...")
+        print(f"[LinkedIn] Scraping {username_or_url}...")
+        
+        # Extract username from URL if needed
+        username = username_or_url
+        if "linkedin.com" in username_or_url:
+            # Extract username from URL: linkedin.com/in/username -> username
+            username = username_or_url.rstrip("/").split("/")[-1]
+        
+        print(f"[LinkedIn] Extracted username: {username}")
         
         if not self.has_token:
             print("[LinkedIn] No APIFY_API_TOKEN, returning mock data")
             return {
                 "firstName": username.split("-")[0].title() if "-" in username else username.title(),
-                "lastName": username.split("-")[1].title() if "-" in username else "",
+                "lastName": username.split("-")[1].title() if len(username.split("-")) > 1 else "",
                 "headline": "Professional at Company",
                 "summary": f"Mock LinkedIn profile for {username}.",
                 "positions": [{"title": "Job Title", "companyName": "Company Name"}]
             }
         
         try:
+            # apimaestro/linkedin-profile-detail input schema
+            # Parameter is "username", NOT "profileUrl"!
             run_input = {
-                "profileUrls": [f"https://linkedin.com/in/{username}"],
-                "maxItems": self.MAX_ITEMS["linkedin"],
+                "username": username,       # Just the username part, e.g. "marcus-tan-8846ba271"
+                "includeEmail": False,      # Email lookup costs extra
             }
             
+            print(f"[LinkedIn] Calling apimaestro/linkedin-profile-detail with username: {username}")
             run = self.client.actor(self.ACTORS["linkedin"]).call(run_input=run_input)
             items = self.client.dataset(run["defaultDatasetId"]).list_items().items
             
@@ -310,7 +330,7 @@ class MultiPlatformScraperService:
             
         except Exception as e:
             print(f"[LinkedIn] Error: {e}")
-            return {"summary": f"Error scraping {username}.", "positions": []}
+            return {"summary": f"Error scraping {username_or_url}.", "positions": []}
     
     def scrape_facebook(self, username: str) -> dict:
         """
@@ -688,15 +708,16 @@ class LLMService:
             text = msg.get('text', '').lower()
             # Extract key nouns/topics (simple keyword extraction)
             # These become "banned" topics for future roasts
+            # Lowered to 3 chars to catch words like "pic", "fit", etc.
             keywords = [
                 word.strip('.,!?"\'') 
                 for word in text.split() 
-                if len(word) > 4 and word.isalpha()
+                if len(word) > 3 and word.isalpha()
             ]
-            exhausted_topics.extend(keywords[:5])  # Top 5 keywords per turn
+            exhausted_topics.extend(keywords[:10])  # Increased to 10 keywords per turn
         
         # Dedupe and format
-        exhausted_topics = list(set(exhausted_topics))[:20]  # Max 20 exhausted topics
+        exhausted_topics = list(set(exhausted_topics))[:30]  # Increased to 30 to catch more concepts
         exhausted_text = ", ".join(exhausted_topics) if exhausted_topics else "None yet"
         
         # Calculate turn number for variety nudges
@@ -722,23 +743,22 @@ class LLMService:
         MATCH HISTORY:
         {history_text if history_text else "No previous roasts yet."}
         
-        === EXHAUSTED TOPICS (DO NOT MENTION THESE AGAIN) ===
+        ⛔ BANNED WORDS/CONCEPTS - DO NOT USE THESE ⛔
         {exhausted_text}
+        If you use ANY of these words or similar concepts, your roast scores 0 damage.
         
         === ATTACK DIRECTION FOR THIS TURN ===
         {current_hint}
         
-        STRICT INSTRUCTIONS:
-        1. Adopt your persona completely. Use your specific slang and writing style.
-        2. Your roast MUST attack from a COMPLETELY NEW ANGLE.
-        3. DO NOT reference any word or topic from EXHAUSTED TOPICS above.
-        4. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
-        5. Be HYPER-SPECIFIC. Reference real facts about the opponent.
-        6. Humor is key. Make the audience laugh while destroying the opponent.
-        7. DO NOT USE EMOJIS.
-        8. PENALTY: Repeating ANY topic from previous roasts = automatic 0 damage.
+        STRICT RULES:
+        1. Use your persona's slang and style.
+        2. Attack a COMPLETELY DIFFERENT topic than previous roasts.
+        3. **MAX 20 WORDS**. Short and brutal.
+        4. **BE SAVAGE**. Make it hurt.
+        5. **BE FUNNY**. Irony, exaggeration, or unexpected twist.
+        6. NO EMOJIS.
         
-        Return JSON format ONLY:
+        Return JSON ONLY:
         {{
             "text": "Your roast here"
         }}

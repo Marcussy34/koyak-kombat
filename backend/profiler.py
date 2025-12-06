@@ -143,7 +143,14 @@ class ProfileAggregator:
     def normalize_linkedin(raw_data: dict) -> str:
         """
         Normalize LinkedIn scraper output.
-        Expected fields: firstName, lastName, headline, summary, positions
+        Handles both old actor (curious_coder) and new actor (apimaestro/linkedin-profile-detail).
+        
+        Expected fields from apimaestro/linkedin-profile-detail:
+        - firstName, lastName, headline, summary/about
+        - positions/experience (work history)
+        - educations/education (schools)
+        - certifications (professional certs)
+        - locationName/location (city/region)
         """
         if not raw_data:
             return "No LinkedIn data available."
@@ -160,21 +167,51 @@ class ProfileAggregator:
         if headline:
             parts.append(f"Headline: {headline}")
         
+        # Location (new actor may use different field names)
+        location = raw_data.get("locationName", raw_data.get("location", raw_data.get("geoLocationName", "")))
+        if location:
+            parts.append(f"Location: {location}")
+        
         summary = raw_data.get("summary", raw_data.get("about", ""))
         if summary:
             parts.append(f"About: {summary[:1000]}")  # Increased truncation limit
         
-        # Work experience
-        positions = raw_data.get("positions", raw_data.get("experience", []))
+        # Work experience (handle different field names)
+        positions = raw_data.get("positions", raw_data.get("experience", raw_data.get("workExperience", [])))
         if positions and isinstance(positions, list):
             exp_parts = []
             for pos in positions[:5]:
                 title = pos.get("title", "")
-                company = pos.get("companyName", pos.get("company", ""))
+                company = pos.get("companyName", pos.get("company", pos.get("organizationName", "")))
+                description = pos.get("description", "")
                 if title or company:
-                    exp_parts.append(f"- {title} at {company}")
+                    exp_entry = f"- {title} at {company}"
+                    if description:
+                        exp_entry += f": {description[:200]}"  # Include role description
+                    exp_parts.append(exp_entry)
             if exp_parts:
                 parts.append("EXPERIENCE:\n" + "\n".join(exp_parts))
+        
+        # Education (new field from apimaestro actor)
+        educations = raw_data.get("educations", raw_data.get("education", []))
+        if educations and isinstance(educations, list):
+            edu_parts = []
+            for edu in educations[:3]:
+                school = edu.get("schoolName", edu.get("school", ""))
+                degree = edu.get("degreeName", edu.get("degree", ""))
+                field = edu.get("fieldOfStudy", "")
+                if school:
+                    edu_entry = f"- {degree} in {field} from {school}" if degree else f"- Studied at {school}"
+                    edu_parts.append(edu_entry)
+            if edu_parts:
+                parts.append("EDUCATION:\n" + "\n".join(edu_parts))
+        
+        # Certifications (new field from apimaestro actor)
+        certs = raw_data.get("certifications", [])
+        if certs and isinstance(certs, list):
+            cert_names = [c.get("name", "") for c in certs[:5] if c.get("name")]
+            if cert_names:
+                parts.append(f"CERTIFICATIONS: {', '.join(cert_names)}")
         
         return "LINKEDIN PROFILE:\n" + "\n".join(parts) if parts else "No LinkedIn data available."
     

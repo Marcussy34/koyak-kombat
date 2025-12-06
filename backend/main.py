@@ -267,8 +267,9 @@ async def create_fighters_batch(batch: BatchFighterCreate):
     1. Collect all usernames per platform across both fighters
     2. Run ONE Instagram actor with all usernames
     3. Run ONE Facebook Pages + ONE Facebook Posts actor with all URLs (in parallel)
-    4. Split results back to each fighter
-    5. Generate personas for both fighters in parallel
+    4. Scrape LinkedIn profiles individually (no batch support in actor)
+    5. Split results back to each fighter
+    6. Generate personas for both fighters in parallel
     
     This uses 3 actor instances instead of 6!
     """
@@ -320,15 +321,54 @@ async def create_fighters_batch(batch: BatchFighterCreate):
         
     print(f"[Batch] Twitter usernames: {tw_usernames}")
     
-    # Step 2: Batch scrape all platforms in parallel (3 actors max)
+    # Collect LinkedIn usernames/URLs
+    # LinkedIn scraper uses full URLs, so we store both username and original_url
+    li_profiles = []  # List of (username, original_url)
+    li_username_to_fighter = {}
+    
+    for info in f1_routed.get("linkedin", []):
+        li_profiles.append((info.username, info.original_url))
+        li_username_to_fighter[info.username] = "f1"
+    for info in f2_routed.get("linkedin", []):
+        li_profiles.append((info.username, info.original_url))
+        li_username_to_fighter[info.username] = "f2"
+    
+    print(f"[Batch] LinkedIn profiles: {[p[0] for p in li_profiles]}")
+    
+    # Step 2: Batch scrape all platforms in parallel (4 actors max)
     ig_results = {}
     fb_results = {}
     tw_results = {}
+    li_results = {}
     
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    def scrape_linkedin_profiles(profiles: list) -> dict:
+        """Scrape multiple LinkedIn profiles in parallel (no batch support in actor)."""
+        results = {}
+        if not profiles:
+            return results
+        
+        def scrape_single(item):
+            username, url = item
+            try:
+                data = scraper_service.scrape_linkedin(url)
+                return username, data
+            except Exception as e:
+                print(f"[LinkedIn Batch] Error scraping {username}: {e}")
+                return username, {}
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(scrape_single, p) for p in profiles]
+            for future in futures:
+                username, data = future.result()
+                if data:
+                    results[username] = data
+        return results
+    
+    with ThreadPoolExecutor(max_workers=4) as executor:
         ig_future = executor.submit(scraper_service.batch_scrape_instagram, ig_usernames) if ig_usernames else None
         fb_future = executor.submit(scraper_service.batch_scrape_facebook, fb_usernames) if fb_usernames else None
         tw_future = executor.submit(scraper_service.batch_scrape_twitter, tw_usernames) if tw_usernames else None
+        li_future = executor.submit(scrape_linkedin_profiles, li_profiles) if li_profiles else None
         
         if ig_future:
             ig_results = ig_future.result()
@@ -336,8 +376,10 @@ async def create_fighters_batch(batch: BatchFighterCreate):
             fb_results = fb_future.result()
         if tw_future:
             tw_results = tw_future.result()
+        if li_future:
+            li_results = li_future.result()
     
-    print(f"[Batch] Scraping complete. IG: {list(ig_results.keys())}, FB: {list(fb_results.keys())}, TW: {list(tw_results.keys())}")
+    print(f"[Batch] Scraping complete. IG: {list(ig_results.keys())}, FB: {list(fb_results.keys())}, TW: {list(tw_results.keys())}, LI: {list(li_results.keys())}")
     
     # Step 3: Split results back to each fighter
     f1_data = {}
@@ -370,6 +412,28 @@ async def create_fighters_batch(batch: BatchFighterCreate):
             f2_data["twitter"] = data
             if f2_name == "Digital Twin 2":
                 f2_name = f"@{username}"
+    
+    # Assign LinkedIn results
+    for username, data in li_results.items():
+        if li_username_to_fighter.get(username) == "f1":
+            f1_data["linkedin"] = data
+            if f1_name == "Digital Twin 1":
+                # Try to get name from LinkedIn data
+                first = data.get("firstName", "")
+                last = data.get("lastName", "")
+                if first or last:
+                    f1_name = f"{first} {last}".strip()
+                else:
+                    f1_name = f"@{username}"
+        else:
+            f2_data["linkedin"] = data
+            if f2_name == "Digital Twin 2":
+                first = data.get("firstName", "")
+                last = data.get("lastName", "")
+                if first or last:
+                    f2_name = f"{first} {last}".strip()
+                else:
+                    f2_name = f"@{username}"
     
     print(f"[Batch] F1 platforms: {list(f1_data.keys())}, F2 platforms: {list(f2_data.keys())}")
     
