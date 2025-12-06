@@ -237,12 +237,21 @@ export default function CharacterSelect() {
         </motion.div>
       )}
 
-      {/* Loading Overlay */}
-      {isLoading && (
+
+
+      {/* Background with Overlay (same as index.js) */}
+      <div className="absolute inset-0 z-0">
+        <img src="/background.png" alt="Dojo Background" className={`w-full h-full object-cover opacity-40 ${isLoading ? 'blur-sm' : ''}`} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
+        {/* Scanline Effect */}
+        <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 2px, 3px 100%' }}></div>
+      </div>
+
+      {isLoading ? (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-xl"
+          className="flex-1 flex items-center justify-center relative z-10"
         >
           <div className="w-full max-w-2xl mx-4">
             {/* Title */}
@@ -302,264 +311,258 @@ export default function CharacterSelect() {
             </div>
           </div>
         </motion.div>
+      ) : (
+        <>
+          {/* Navbar */}
+          <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
+            <Link href="/" className="text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)] hover:text-yellow-300 transition-colors">
+              Koyak Kombat
+            </Link>
+            <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
+              <a href="#" className="hover:text-white hover:underline">Fighters</a>
+              <a href="#" className="hover:text-white hover:underline">Leaderboard</a>
+              <a href="#" className="hover:text-white hover:underline">About</a>
+            </div>
+          </nav>
+
+          {/* Main Content */}
+          <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-8">
+            
+            {/* Title Section - Animated */}
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="text-center mb-8"
+            >
+              <motion.h1 
+                initial={{ y: 20 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="text-2xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[4px_4px_0_rgba(180,83,9,1)] mb-2 leading-tight uppercase"
+              >
+                Select Your Fighters
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="text-[10px] md:text-xs text-gray-400 tracking-widest uppercase"
+              >
+                Enter their social profiles to spawn digital warriors
+              </motion.p>
+            </motion.div>
+
+            {/* Fighter Cards Grid - Animated */}
+            <motion.div 
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className="w-full max-w-6xl grid md:grid-cols-2 gap-8 mb-8 z-20 items-start"
+            >
+              
+              {/* Fighter 1 Card */}
+              <div className="relative">
+                {/* Card Shadow */}
+                <div className="absolute inset-0 bg-red-900 translate-y-2 translate-x-2 border-4 border-black"></div>
+                {/* Card */}
+                <div className="relative bg-black/80 border-4 border-red-600 p-6 backdrop-blur-sm">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-red-800/50">
+                    <Sword className="w-5 h-5 text-red-500" />
+                    <h2 className="text-sm text-red-500 uppercase tracking-wider">Fighter 1</h2>
+                  </div>
+                  
+                  {/* URL Inputs */}
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
+                      <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
+                    </div>
+                    
+                    {fighter1Urls.map((url, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
+                          className="flex-1 px-3 py-2 bg-black/70 border-2 border-red-800/50 text-red-200 text-[10px] placeholder-red-900/50 focus:border-red-500 focus:outline-none transition-colors"
+                          value={url}
+                          onChange={(e) => updateUrl(setFighter1Urls, fighter1Urls, index, e.target.value)}
+                        />
+                        {fighter1Urls.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeUrl(setFighter1Urls, fighter1Urls, index)}
+                            className="px-2 text-red-400 hover:text-red-200 hover:bg-red-900/30 border-2 border-red-800/50 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {fighter1Urls.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => addUrl(setFighter1Urls, fighter1Urls)}
+                        className="w-full py-2 text-[10px] text-red-400 border-2 border-dashed border-red-800/50 hover:border-red-500 hover:text-red-200 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-3 h-3" /> Add Platform
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Voice & Model Selects */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8px] text-gray-500 uppercase">Voice</label>
+                      <RetroDropdown 
+                        id="f1-voice"
+                        value={fighter1Voice}
+                        onChange={setFighter1Voice}
+                        options={voices}
+                        color="red"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] text-gray-500 uppercase">Model</label>
+                      <RetroDropdown 
+                        id="f1-model"
+                        value={fighter1Model}
+                        onChange={setFighter1Model}
+                        options={models}
+                        color="red"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fighter 2 Card */}
+              <div className="relative">
+                {/* Card Shadow */}
+                <div className="absolute inset-0 bg-blue-900 translate-y-2 translate-x-2 border-4 border-black"></div>
+                {/* Card */}
+                <div className="relative bg-black/80 border-4 border-blue-600 p-6 backdrop-blur-sm">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-blue-800/50">
+                    <Sword className="w-5 h-5 text-blue-500" />
+                    <h2 className="text-sm text-blue-500 uppercase tracking-wider">Fighter 2</h2>
+                  </div>
+                  
+                  {/* URL Inputs */}
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
+                      <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
+                    </div>
+                    
+                    {fighter2Urls.map((url, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
+                          className="flex-1 px-3 py-2 bg-black/70 border-2 border-blue-800/50 text-blue-200 text-[10px] placeholder-blue-900/50 focus:border-blue-500 focus:outline-none transition-colors"
+                          value={url}
+                          onChange={(e) => updateUrl(setFighter2Urls, fighter2Urls, index, e.target.value)}
+                        />
+                        {fighter2Urls.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeUrl(setFighter2Urls, fighter2Urls, index)}
+                            className="px-2 text-blue-400 hover:text-blue-200 hover:bg-blue-900/30 border-2 border-blue-800/50 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {fighter2Urls.length < 3 && (
+                      <button
+                        type="button"
+                        onClick={() => addUrl(setFighter2Urls, fighter2Urls)}
+                        className="w-full py-2 text-[10px] text-blue-400 border-2 border-dashed border-blue-800/50 hover:border-blue-500 hover:text-blue-200 hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-3 h-3" /> Add Platform
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Voice & Model Selects */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8px] text-gray-500 uppercase">Voice</label>
+                      <RetroDropdown 
+                        id="f2-voice"
+                        value={fighter2Voice}
+                        onChange={setFighter2Voice}
+                        options={voices}
+                        color="blue"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] text-gray-500 uppercase">Model</label>
+                      <RetroDropdown 
+                        id="f2-model"
+                        value={fighter2Model}
+                        onChange={setFighter2Model}
+                        options={models}
+                        color="blue"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Enter Arena Button - Animated */}
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
+              className="relative z-10 inline-block w-full max-w-md"
+            >
+              <div className="absolute inset-0 bg-red-800 translate-y-2 translate-x-2 border-4 border-black"></div>
+              <motion.button
+                onClick={handleSpawn}
+                disabled={isLoading}
+                className="relative w-full px-8 py-6 bg-gradient-to-b from-red-500 to-red-700 border-4 border-white text-white text-lg md:text-xl hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-y-1 active:translate-x-1 uppercase disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:translate-x-0"
+                animate={{ 
+                  boxShadow: [
+                    "0 0 0 0 rgba(239, 68, 68, 0)",
+                    "0 0 20px 10px rgba(239, 68, 68, 0.4)",
+                    "0 0 0 0 rgba(239, 68, 68, 0)"
+                  ]
+                }}
+                transition={{ 
+                  duration: 1.5, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                {isLoading ? (
+                  <span className="animate-pulse">Spawning Fighters...</span>
+                ) : (
+                  'Enter The Arena'
+                )}
+              </motion.button>
+            </motion.div>
+
+            {/* Powered By */}
+            <p className="mt-8 text-[8px] text-gray-600 uppercase tracking-wider">
+              Powered by Gemini, ElevenLabs & Vertex AI
+            </p>
+          </main>
+
+          {/* Footer */}
+          <footer className="relative z-10 p-6 text-center">
+            <p className="text-[8px] md:text-[10px] text-gray-600 uppercase">
+              © 2025 Koyak Kombat. No feelings were spared in the making of this game.
+            </p>
+          </footer>
+        </>
       )}
-
-      {/* Background with Overlay (same as index.js) */}
-      <div className="absolute inset-0 z-0">
-        <img src="/background.png" alt="Dojo Background" className="w-full h-full object-cover opacity-40 blur-sm" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
-        {/* Scanline Effect */}
-        <div className="absolute inset-0 pointer-events-none opacity-10" style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 2px, 3px 100%' }}></div>
-      </div>
-
-      {/* Navbar */}
-      <nav className="relative z-10 flex justify-between items-center p-6 md:p-8">
-        <Link href="/" className="text-yellow-400 text-xs md:text-sm tracking-widest uppercase drop-shadow-[2px_2px_0_rgba(0,0,0,1)] hover:text-yellow-300 transition-colors">
-          Koyak Kombat
-        </Link>
-        <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
-          <a href="#" className="hover:text-white hover:underline">Fighters</a>
-          <a href="#" className="hover:text-white hover:underline">Leaderboard</a>
-          <a href="#" className="hover:text-white hover:underline">About</a>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center px-4 py-8">
-        
-        {/* Title Section - Animated */}
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="text-center mb-8"
-        >
-          <motion.h1 
-            initial={{ y: 20 }}
-            animate={{ y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="text-2xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[4px_4px_0_rgba(180,83,9,1)] mb-2 leading-tight uppercase"
-          >
-            Select Your Fighters
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="text-[10px] md:text-xs text-gray-400 tracking-widest uppercase"
-          >
-            Enter their social profiles to spawn digital warriors
-          </motion.p>
-        </motion.div>
-
-        {/* Fighter Cards Grid - Animated */}
-        <motion.div 
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-          className="w-full max-w-6xl grid md:grid-cols-2 gap-8 mb-8 z-20 items-start"
-        >
-          
-          {/* Fighter 1 Card */}
-          <div className="relative">
-            {/* Card Shadow */}
-            <div className="absolute inset-0 bg-red-900 translate-y-2 translate-x-2 border-4 border-black"></div>
-            {/* Card */}
-            <div className="relative bg-black/80 border-4 border-red-600 p-6 backdrop-blur-sm">
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-red-800/50">
-                <Sword className="w-5 h-5 text-red-500" />
-                <h2 className="text-sm text-red-500 uppercase tracking-wider">Fighter 1</h2>
-              </div>
-              
-              {/* URL Inputs */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
-                  <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
-                </div>
-                
-                {fighter1Urls.map((url, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input 
-                      type="text"
-                      placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
-                      className="flex-1 px-3 py-2 bg-black/70 border-2 border-red-800/50 text-red-200 text-[10px] placeholder-red-900/50 focus:border-red-500 focus:outline-none transition-colors"
-                      value={url}
-                      onChange={(e) => updateUrl(setFighter1Urls, fighter1Urls, index, e.target.value)}
-                    />
-                    {fighter1Urls.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeUrl(setFighter1Urls, fighter1Urls, index)}
-                        className="px-2 text-red-400 hover:text-red-200 hover:bg-red-900/30 border-2 border-red-800/50 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                {fighter1Urls.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={() => addUrl(setFighter1Urls, fighter1Urls)}
-                    className="w-full py-2 text-[10px] text-red-400 border-2 border-dashed border-red-800/50 hover:border-red-500 hover:text-red-200 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-3 h-3" /> Add Platform
-                  </button>
-                )}
-              </div>
-              
-              {/* Voice & Model Selects */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[8px] text-gray-500 uppercase">Voice</label>
-                  <RetroDropdown 
-                    id="f1-voice"
-                    value={fighter1Voice}
-                    onChange={setFighter1Voice}
-                    options={voices}
-                    color="red"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[8px] text-gray-500 uppercase">Model</label>
-                  <RetroDropdown 
-                    id="f1-model"
-                    value={fighter1Model}
-                    onChange={setFighter1Model}
-                    options={models}
-                    color="red"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Fighter 2 Card */}
-          <div className="relative">
-            {/* Card Shadow */}
-            <div className="absolute inset-0 bg-blue-900 translate-y-2 translate-x-2 border-4 border-black"></div>
-            {/* Card */}
-            <div className="relative bg-black/80 border-4 border-blue-600 p-6 backdrop-blur-sm">
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-blue-800/50">
-                <Sword className="w-5 h-5 text-blue-500" />
-                <h2 className="text-sm text-blue-500 uppercase tracking-wider">Fighter 2</h2>
-              </div>
-              
-              {/* URL Inputs */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-gray-400 uppercase">Social Profile URLs</label>
-                  <span className="text-[8px] text-gray-600">Twitter • Insta • LinkedIn</span>
-                </div>
-                
-                {fighter2Urls.map((url, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input 
-                      type="text"
-                      placeholder={index === 0 ? "https://twitter.com/..." : "Add another profile..."}
-                      className="flex-1 px-3 py-2 bg-black/70 border-2 border-blue-800/50 text-blue-200 text-[10px] placeholder-blue-900/50 focus:border-blue-500 focus:outline-none transition-colors"
-                      value={url}
-                      onChange={(e) => updateUrl(setFighter2Urls, fighter2Urls, index, e.target.value)}
-                    />
-                    {fighter2Urls.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeUrl(setFighter2Urls, fighter2Urls, index)}
-                        className="px-2 text-blue-400 hover:text-blue-200 hover:bg-blue-900/30 border-2 border-blue-800/50 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                {fighter2Urls.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={() => addUrl(setFighter2Urls, fighter2Urls)}
-                    className="w-full py-2 text-[10px] text-blue-400 border-2 border-dashed border-blue-800/50 hover:border-blue-500 hover:text-blue-200 hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-3 h-3" /> Add Platform
-                  </button>
-                )}
-              </div>
-              
-              {/* Voice & Model Selects */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[8px] text-gray-500 uppercase">Voice</label>
-                  <RetroDropdown 
-                    id="f2-voice"
-                    value={fighter2Voice}
-                    onChange={setFighter2Voice}
-                    options={voices}
-                    color="blue"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[8px] text-gray-500 uppercase">Model</label>
-                  <RetroDropdown 
-                    id="f2-model"
-                    value={fighter2Model}
-                    onChange={setFighter2Model}
-                    options={models}
-                    color="blue"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Enter Arena Button - Animated */}
-        <motion.div 
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-          className="relative z-10 inline-block w-full max-w-md"
-        >
-          <div className="absolute inset-0 bg-red-800 translate-y-2 translate-x-2 border-4 border-black"></div>
-          <motion.button
-            onClick={handleSpawn}
-            disabled={isLoading}
-            className="relative w-full px-8 py-6 bg-gradient-to-b from-red-500 to-red-700 border-4 border-white text-white text-lg md:text-xl hover:-translate-y-1 hover:-translate-x-1 transition-transform active:translate-y-1 active:translate-x-1 uppercase disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:translate-x-0"
-            animate={{ 
-              boxShadow: [
-                "0 0 0 0 rgba(239, 68, 68, 0)",
-                "0 0 20px 10px rgba(239, 68, 68, 0.4)",
-                "0 0 0 0 rgba(239, 68, 68, 0)"
-              ]
-            }}
-            transition={{ 
-              duration: 1.5, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          >
-            {isLoading ? (
-              <span className="animate-pulse">Spawning Fighters...</span>
-            ) : (
-              'Enter The Arena'
-            )}
-          </motion.button>
-        </motion.div>
-
-        {/* Powered By */}
-        <p className="mt-8 text-[8px] text-gray-600 uppercase tracking-wider">
-          Powered by Gemini, ElevenLabs & Vertex AI
-        </p>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 p-6 text-center">
-        <p className="text-[8px] md:text-[10px] text-gray-600 uppercase">
-          © 2025 Koyak Kombat. No feelings were spared in the making of this game.
-        </p>
-      </footer>
     </div>
   );
 }
