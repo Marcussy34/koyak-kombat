@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
+import { toJpeg } from 'html-to-image'; // Use html-to-image for better modern CSS support
 import { api } from '../lib/api';
 import { Sword, Skull, Zap, Scale, Gavel, Flame, X, ScrollText } from 'lucide-react';
 
@@ -52,6 +54,7 @@ export default function Battle() {
   const [fighter1, setFighter1] = useState(null);
   const [fighter2, setFighter2] = useState(null);
   const [battleBackground, setBattleBackground] = useState(null);
+  const [battleScreenshot, setBattleScreenshot] = useState(null); // Screenshot for video generation
   
   // Prevents auto-start: only allow fight after page is fully ready
   const [isReady, setIsReady] = useState(false);
@@ -158,6 +161,32 @@ export default function Battle() {
       }
     }
   }, [isGenerating, isStreaming, isJudging]);
+
+  // Capture screenshot at the start of Round 1 (first thinking phase)
+  useEffect(() => {
+    if (isGenerating && !battleScreenshot && chatHistory.length === 0) {
+      const captureScreenshot = async () => {
+        try {
+          const battleArena = document.querySelector('.battle-arena');
+          if (battleArena) {
+            console.log('[Battle] Capturing Round 1 screenshot with html-to-image...');
+            const screenshotData = await toJpeg(battleArena, {
+              quality: 0.85,
+              backgroundColor: '#000000',
+              filter: (node) => !node.classList?.contains('no-capture')
+            });
+            setBattleScreenshot(screenshotData);
+            console.log('[Battle] Round 1 Screenshot captured successfully');
+          }
+        } catch (e) {
+          console.error('[Battle] Screenshot capture failed:', e);
+        }
+      };
+      
+      // Small delay to ensure UI is ready
+      setTimeout(captureScreenshot, 500);
+    }
+  }, [isGenerating, battleScreenshot, chatHistory]);
 
   const handleStartFight = async () => {
     // Guard: prevent starting if not ready or already fighting
@@ -501,7 +530,7 @@ export default function Battle() {
   const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
 
   return (
-    <div className="min-h-screen font-['Press_Start_2P'] text-white flex flex-col overflow-hidden relative bg-neutral-950">
+    <div className="battle-arena min-h-screen font-['Press_Start_2P'] text-white flex flex-col overflow-hidden relative bg-neutral-950">
       <Head>
         <title>Koyak Kombat - Battle</title>
       </Head>
@@ -750,6 +779,7 @@ export default function Battle() {
         <FinishingMoveDrawer 
           winner={winner}
           loser={loser}
+          battleScreenshot={battleScreenshot}
           onComplete={handleFinishingMoveComplete}
         />
       )}
@@ -764,18 +794,6 @@ export default function Battle() {
                 className="px-12 py-6 bg-red-600 hover:bg-red-700 text-white text-2xl md:text-4xl border-4 border-white shadow-[0_0_20px_rgba(220,38,38,0.6)] hover:scale-110 transition-transform uppercase tracking-widest animate-pulse"
               >
                 FIGHT!
-              </button>
-              {/* DEBUG: Skip to finishing move - REMOVE LATER */}
-              <button 
-                onClick={() => {
-                  // Set mock winner/loser and trigger finishing move
-                  setWinner(fighter1 || { name: 'Test Winner', gender: 'male' });
-                  setLoser(fighter2 || { name: 'Test Loser', gender: 'male' });
-                  setShowFinishingMove(true);
-                }}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs border-2 border-white uppercase opacity-50 hover:opacity-100"
-              >
-                [DEBUG] Skip to Finish
               </button>
             </div>
           ) : (
@@ -832,7 +850,7 @@ export default function Battle() {
       <div className="absolute bottom-4 right-4 z-[60]">
         <button 
           onClick={() => setShowLogs(true)}
-          className="px-4 py-2 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md rounded border border-gray-600 hover:border-yellow-500 transition-all hover:scale-105 shadow-lg flex items-center gap-2"
+          className="no-capture px-4 py-2 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md rounded border border-gray-600 hover:border-yellow-500 transition-all hover:scale-105 shadow-lg flex items-center gap-2"
           title="View Battle Logs"
         >
           <span className="text-[10px] font-bold text-gray-400 hover:text-yellow-400 tracking-widest uppercase">
