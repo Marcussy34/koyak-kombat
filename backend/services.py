@@ -314,8 +314,8 @@ class MultiPlatformScraperService:
     
     def scrape_facebook(self, username: str) -> dict:
         """
-        Scrape Facebook page info + recent posts.
-        Combines both Apify actors for comprehensive persona data.
+        Scrape Facebook page info + recent posts IN PARALLEL.
+        Both Apify actors run simultaneously for faster scraping.
         
         Args:
             username: Facebook page name or profile ID
@@ -323,6 +323,8 @@ class MultiPlatformScraperService:
         Returns:
             Dict with page info + posts array
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
         print(f"[Facebook] Scraping {username}...")
         
         if not self.has_token:
@@ -336,55 +338,67 @@ class MultiPlatformScraperService:
             }
         
         fb_url = f"https://www.facebook.com/{username}"
-        result = {
-            "page_info": {},
-            "posts": []
-        }
         
-        # Step 1: Get page info (name, about, likes, followers)
-        try:
-            print(f"[Facebook] Fetching page info for {username}...")
-            page_input = {
-                "startUrls": [{"url": fb_url}],
-            }
-            
-            run = self.client.actor(self.ACTORS["facebook_pages"]).call(run_input=page_input)
-            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
-            
-            if items:
-                result["page_info"] = items[0]
-                print(f"[Facebook] Got page info: {items[0].get('name', 'Unknown')}")
-                print(f"[Facebook] Page info raw: {json.dumps(items[0], indent=2, default=str)[:1500]}...")
-        except Exception as e:
-            print(f"[Facebook] Error fetching page info: {e}")
+        def fetch_page_info():
+            """Fetch page info (name, about, likes, followers)."""
+            try:
+                print(f"[Facebook] Fetching page info for {username}...")
+                page_input = {
+                    "startUrls": [{"url": fb_url}],
+                }
+                
+                run = self.client.actor(self.ACTORS["facebook_pages"]).call(run_input=page_input)
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                
+                if items:
+                    print(f"[Facebook] Got page info: {items[0].get('name', 'Unknown')}")
+                    print(f"[Facebook] Page info raw: {json.dumps(items[0], indent=2, default=str)[:1500]}...")
+                    return items[0]
+                return {}
+            except Exception as e:
+                print(f"[Facebook] Error fetching page info: {e}")
+                return {}
         
-        # Step 2: Get recent posts (text, engagement)
-        try:
-            print(f"[Facebook] Fetching recent posts for {username}...")
-            posts_input = {
-                "startUrls": [{"url": fb_url}],
-                "resultsLimit": self.MAX_ITEMS["facebook_posts"],
-            }
+        def fetch_posts():
+            """Fetch recent posts (text, engagement)."""
+            try:
+                print(f"[Facebook] Fetching recent posts for {username}...")
+                posts_input = {
+                    "startUrls": [{"url": fb_url}],
+                    "resultsLimit": self.MAX_ITEMS["facebook_posts"],
+                }
+                
+                run = self.client.actor(self.ACTORS["facebook_posts"]).call(run_input=posts_input)
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                
+                if items:
+                    print(f"[Facebook] Got {len(items)} posts")
+                    if len(items) > 0:
+                        print(f"[Facebook] Sample post: {json.dumps(items[0], indent=2, default=str)[:1000]}...")
+                    return items
+                return []
+            except Exception as e:
+                print(f"[Facebook] Error fetching posts: {e}")
+                return []
+        
+        # Run BOTH scrapers in parallel
+        page_info = {}
+        posts = []
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            page_future = executor.submit(fetch_page_info)
+            posts_future = executor.submit(fetch_posts)
             
-            run = self.client.actor(self.ACTORS["facebook_posts"]).call(run_input=posts_input)
-            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
-            
-            if items:
-                result["posts"] = items
-                print(f"[Facebook] Got {len(items)} posts")
-                # Log first post as sample
-                if len(items) > 0:
-                    print(f"[Facebook] Sample post: {json.dumps(items[0], indent=2, default=str)[:1000]}...")
-        except Exception as e:
-            print(f"[Facebook] Error fetching posts: {e}")
+            page_info = page_future.result()
+            posts = posts_future.result()
         
         # Combine into single profile object for aggregator
         combined = {
-            **result["page_info"],
-            "posts": result["posts"]
+            **page_info,
+            "posts": posts
         }
         
-        return combined if (result["page_info"] or result["posts"]) else {}
+        return combined if (page_info or posts) else {}
     
     def scrape_platform(self, platform: str, username: str) -> any:
         """
@@ -408,6 +422,172 @@ class MultiPlatformScraperService:
         else:
             print(f"[Scraper] Unknown platform: {platform}")
             return None
+    
+    # =========================================================================
+    # BATCH SCRAPING METHODS
+    # These scrape multiple profiles in a SINGLE actor call for efficiency
+    # =========================================================================
+    
+    def batch_scrape_instagram(self, usernames: list[str]) -> dict[str, dict]:
+        """
+        Scrape multiple Instagram profiles in a SINGLE actor call.
+        
+        Args:
+            usernames: List of Instagram usernames to scrape
+            
+        Returns:
+            Dict mapping username -> profile data
+        """
+        if not usernames:
+            return {}
+        
+        print(f"[Instagram Batch] Scraping {len(usernames)} profiles: {usernames}")
+        
+        # Handle fallback data first
+        results = {}
+        remaining_usernames = []
+        
+        for username in usernames:
+            if username.lower() in self.FALLBACK_DATA:
+                fallback = self.FALLBACK_DATA[username.lower()]
+                if fallback["platform"] == "instagram":
+                    print(f"[Instagram Batch] Using fallback for @{username}")
+                    results[username] = fallback["data"]
+                    continue
+            remaining_usernames.append(username)
+        
+        if not remaining_usernames:
+            return results
+        
+        if not self.has_token:
+            print("[Instagram Batch] No APIFY_API_TOKEN, returning mock data")
+            for username in remaining_usernames:
+                results[username] = {
+                    "fullName": username.title(),
+                    "biography": f"Mock bio for {username}.",
+                    "followersCount": 10000,
+                    "posts": [{"caption": "Living my best life ✨"}]
+                }
+            return results
+        
+        try:
+            run_input = {
+                "usernames": remaining_usernames,
+                "resultsLimit": self.MAX_ITEMS["instagram"],
+            }
+            
+            run = self.client.actor(self.ACTORS["instagram"]).call(run_input=run_input)
+            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+            
+            # Match results back to usernames
+            for item in items:
+                username = item.get("username", "").lower()
+                # Find matching username (case-insensitive)
+                for orig_username in remaining_usernames:
+                    if orig_username.lower() == username:
+                        results[orig_username] = item
+                        print(f"[Instagram Batch] Got profile for @{orig_username}")
+                        break
+            
+            return results
+            
+        except Exception as e:
+            print(f"[Instagram Batch] Error: {e}")
+            return results
+    
+    def batch_scrape_facebook(self, usernames: list[str]) -> dict[str, dict]:
+        """
+        Scrape multiple Facebook profiles in a SINGLE actor call.
+        Runs both pages and posts scrapers with all URLs at once.
+        
+        Args:
+            usernames: List of Facebook usernames/page names
+            
+        Returns:
+            Dict mapping username -> combined profile data
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        
+        if not usernames:
+            return {}
+        
+        print(f"[Facebook Batch] Scraping {len(usernames)} profiles: {usernames}")
+        
+        if not self.has_token:
+            print("[Facebook Batch] No APIFY_API_TOKEN, returning mock data")
+            results = {}
+            for username in usernames:
+                results[username] = {
+                    "name": username.replace(".", " ").title(),
+                    "about": f"Mock Facebook profile for {username}.",
+                    "likes": 10000,
+                    "followers": 5000,
+                    "posts": [{"text": "Mock post content.", "likes": 100}]
+                }
+            return results
+        
+        # Build URLs for all usernames
+        urls = [{"url": f"https://www.facebook.com/{username}"} for username in usernames]
+        
+        def fetch_all_pages():
+            """Fetch page info for ALL profiles in one actor call."""
+            try:
+                print(f"[Facebook Batch] Fetching page info for {len(usernames)} profiles...")
+                run = self.client.actor(self.ACTORS["facebook_pages"]).call(
+                    run_input={"startUrls": urls}
+                )
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                print(f"[Facebook Batch] Got {len(items)} page info results")
+                return items
+            except Exception as e:
+                print(f"[Facebook Batch] Error fetching pages: {e}")
+                return []
+        
+        def fetch_all_posts():
+            """Fetch posts for ALL profiles in one actor call."""
+            try:
+                print(f"[Facebook Batch] Fetching posts for {len(usernames)} profiles...")
+                run = self.client.actor(self.ACTORS["facebook_posts"]).call(
+                    run_input={
+                        "startUrls": urls,
+                        "resultsLimit": self.MAX_ITEMS["facebook_posts"] * len(usernames),
+                    }
+                )
+                items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+                print(f"[Facebook Batch] Got {len(items)} posts total")
+                return items
+            except Exception as e:
+                print(f"[Facebook Batch] Error fetching posts: {e}")
+                return []
+        
+        # Run both scrapers in parallel
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            pages_future = executor.submit(fetch_all_pages)
+            posts_future = executor.submit(fetch_all_posts)
+            
+            page_items = pages_future.result()
+            post_items = posts_future.result()
+        
+        # Match results back to usernames
+        results = {username: {"posts": []} for username in usernames}
+        
+        # Match page info
+        for item in page_items:
+            page_name = item.get("pageName", "")
+            for username in usernames:
+                if username.lower() == page_name.lower() or username.lower() in item.get("facebookUrl", "").lower():
+                    results[username].update(item)
+                    break
+        
+        # Match posts to usernames
+        for post in post_items:
+            page_name = post.get("pageName", "")
+            for username in usernames:
+                if username.lower() == page_name.lower() or username.lower() in post.get("facebookUrl", "").lower():
+                    results[username]["posts"].append(post)
+                    break
+        
+        return results
 
 
 # Legacy alias for backward compatibility

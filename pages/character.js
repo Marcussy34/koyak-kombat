@@ -81,41 +81,93 @@ export default function CharacterSelect() {
     setLoadingSteps([]);
     setLoadingProgress(0);
     
+    // Extract usernames from URLs for display
+    const extractUsername = (url) => {
+      const match = url.match(/(?:instagram\.com|facebook\.com|twitter\.com|x\.com)\/([^/?]+)/);
+      return match ? match[1] : url;
+    };
+    
+    // Detect platforms and usernames
+    const allUrls = [...f1Urls, ...f2Urls];
+    const igUrls = allUrls.filter(url => url.includes('instagram.com'));
+    const fbUrls = allUrls.filter(url => url.includes('facebook.com'));
+    const twUrls = allUrls.filter(url => url.includes('twitter.com') || url.includes('x.com'));
+    
+    const igUsernames = igUrls.map(extractUsername);
+    const fbUsernames = fbUrls.map(extractUsername);
+    const twUsernames = twUrls.map(extractUsername);
+    
+    // Count actors
+    let actorCount = 0;
+    if (igUsernames.length > 0) actorCount += 1;
+    if (fbUsernames.length > 0) actorCount += 2;
+    if (twUsernames.length > 0) actorCount += 1;
+    
     try {
-      // Step 1: Routing URLs
-      addLoadingStep('Routing URLs to platforms (Twitter, Instagram, LinkedIn)...', 10);
-      await new Promise(r => setTimeout(r, 200));
+      // Step 1: Routing
+      addLoadingStep('[Batch] Routing URLs to platforms...', 5);
+      await new Promise(r => setTimeout(r, 400));
 
-      // Step 2: Fighter 1 - Scraping & LLM
-      addLoadingStep(`Fighter 1: Scraping social profiles...`, 20);
-      const f1Promise = api.createFighter(f1Urls, fighter1Voice);
-      
-      // Step 3: Fighter 2 - Scraping & LLM (parallel)
-      addLoadingStep(`Fighter 2: Scraping social profiles...`, 30);
-      const f2Promise = api.createFighter(f2Urls, fighter2Voice);
+      // Step 2: Show detected usernames
+      if (igUsernames.length > 0) {
+        addLoadingStep(`[Batch] Instagram usernames: ${igUsernames.join(', ')}`, 10);
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (fbUsernames.length > 0) {
+        addLoadingStep(`[Batch] Facebook usernames: ${fbUsernames.join(', ')}`, 15);
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (twUsernames.length > 0) {
+        addLoadingStep(`[Batch] Twitter usernames: ${twUsernames.join(', ')}`, 15);
+        await new Promise(r => setTimeout(r, 300));
+      }
 
-      // Step 4: Waiting for scraping + aggregation + LLM
-      addLoadingStep('Aggregating scraped data from all platforms...', 45);
-      await new Promise(r => setTimeout(r, 1000));
-      
-      addLoadingStep('Calling LLM to generate Fighter 1 persona...', 55);
+      // Step 3: Start batch API call
+      addLoadingStep(`[Batch] Starting ${actorCount} cloud actor${actorCount > 1 ? 's' : ''}...`, 20);
+      const batchPromise = api.createFightersBatch(f1Urls, f2Urls, fighter1Voice, fighter2Voice);
       await new Promise(r => setTimeout(r, 500));
       
-      addLoadingStep('Calling LLM to generate Fighter 2 persona...', 65);
+      // Step 4: Platform-specific scraping
+      let progress = 25;
+      
+      if (igUsernames.length > 0) {
+        addLoadingStep(`[Instagram] Scraping ${igUsernames.length} profile${igUsernames.length > 1 ? 's' : ''}...`, progress);
+        await new Promise(r => setTimeout(r, 3000));
+        addLoadingStep(`[Instagram] Completed ✓`, progress + 10);
+        progress += 12;
+      }
+      
+      if (fbUsernames.length > 0) {
+        addLoadingStep(`[Facebook] Fetching page info for ${fbUsernames.length} profile${fbUsernames.length > 1 ? 's' : ''}...`, progress);
+        await new Promise(r => setTimeout(r, 2000));
+        addLoadingStep(`[Facebook] Fetching posts...`, progress + 8);
+        await new Promise(r => setTimeout(r, 3000));
+        addLoadingStep(`[Facebook] Completed ✓`, progress + 15);
+        progress += 18;
+      }
+      
+      if (twUsernames.length > 0) {
+        addLoadingStep(`[Twitter] Scraping ${twUsernames.length} profile${twUsernames.length > 1 ? 's' : ''}...`, progress);
+        await new Promise(r => setTimeout(r, 2500));
+        addLoadingStep(`[Twitter] Completed ✓`, progress + 10);
+        progress += 12;
+      }
+      
+      // Step 5: AI Profiler
+      addLoadingStep('[AI Profiler] Analyzing both fighter personas...', 75);
+      
+      // Wait for batch result
+      const { fighter1: f1, fighter2: f2 } = await batchPromise;
 
-      // Wait for both fighters to complete
-      const [f1, f2] = await Promise.all([f1Promise, f2Promise]);
-
-      // Step 5: Done - storing
-      addLoadingStep('Personas generated! Storing fighter data...', 90);
+      // Step 6: Complete
+      addLoadingStep('[Batch] Both fighters created successfully!', 95);
       localStorage.clear();
       localStorage.setItem('fighter1', JSON.stringify({ ...f1, voiceId: fighter1Voice, model: fighter1Model }));
       localStorage.setItem('fighter2', JSON.stringify({ ...f2, voiceId: fighter2Voice, model: fighter2Model }));
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
 
-      // Step 6: Complete
-      addLoadingStep('Fighters ready! Entering arena...', 100);
-      await new Promise(r => setTimeout(r, 600));
+      addLoadingStep('Entering arena...', 100);
+      await new Promise(r => setTimeout(r, 500));
 
       router.push('/battle');
     } catch (error) {

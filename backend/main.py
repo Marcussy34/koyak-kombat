@@ -61,6 +61,13 @@ class FighterCreate(BaseModel):
     urls: List[str]  # Array of social media URLs (Twitter, Instagram, LinkedIn)
     voice_id: str
 
+class BatchFighterCreate(BaseModel):
+    """Batch create both fighters in a single request for parallel scraping."""
+    fighter1_urls: List[str]
+    fighter2_urls: List[str]
+    fighter1_voice_id: str = "adam"
+    fighter2_voice_id: str = "charlie"
+
 class MatchStart(BaseModel):
     fighter_1_id: str
     fighter_2_id: str
@@ -181,6 +188,176 @@ async def create_fighter(fighter: FighterCreate):
         "attack_vectors": persona_dict["attack_vectors"],
         "gender": persona_dict["gender"],
         "platforms_scraped": list(platform_data.keys())
+    }
+
+
+def _scrape_fighter_data(urls: List[str]) -> tuple[dict, str]:
+    """
+    Helper: Scrape all platforms for a single fighter.
+    Returns (platform_data dict, detected_name).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    routed = route_urls(urls)
+    platform_data = {}
+    detected_name = "Digital Twin"
+    
+    # Build scrape tasks
+    scrape_tasks = []
+    for platform, platform_infos in routed.items():
+        if platform == "unknown":
+            continue
+        for info in platform_infos:
+            scrape_tasks.append((platform, info.username))
+    
+    # Execute scrapes in parallel
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_task = {
+            executor.submit(scraper_service.scrape_platform, platform, username): (platform, username)
+            for platform, username in scrape_tasks
+        }
+        
+        for future in as_completed(future_to_task):
+            platform, username = future_to_task[future]
+            try:
+                data = future.result()
+                if data:
+                    platform_data[platform] = data
+                    if detected_name == "Digital Twin":
+                        detected_name = f"@{username}"
+            except Exception as e:
+                print(f"[Scraper] Error scraping {platform}/@{username}: {e}")
+    
+    return platform_data, detected_name
+
+
+def _build_fighter_response(platform_data: dict, detected_name: str) -> dict:
+    """
+    Helper: Generate persona from scraped data and build response.
+    """
+    aggregated_context = ProfileAggregator.aggregate(platform_data)
+    print(f"Aggregated context length: {len(aggregated_context)} chars")
+    
+    print(f"[Profiler] Passing {len(aggregated_context)} chars of context to LLM for persona synthesis...")
+    persona = profiler.generate_persona(aggregated_context, detected_name)
+    persona_dict = profiler.persona_to_dict(persona)
+    
+    return {
+        "id": str(uuid.uuid4()),
+        "name": persona.name,
+        "summary": f"{persona.speech_patterns.tone}. Insecurities: {', '.join(persona.psychological_insecurities[:2])}",
+        "system_prompt": persona.system_prompt,
+        "avatar_url": f"https://api.dicebear.com/9.x/pixel-art/svg?seed={persona.name}",
+        "speech_patterns": persona_dict["speech_patterns"],
+        "psychological_insecurities": persona_dict["psychological_insecurities"],
+        "worldview": persona_dict["worldview"],
+        "attack_vectors": persona_dict["attack_vectors"],
+        "gender": persona_dict["gender"],
+        "platforms_scraped": list(platform_data.keys())
+    }
+
+
+@app.post("/api/v1/fighters/create-batch")
+async def create_fighters_batch(batch: BatchFighterCreate):
+    """
+    Create BOTH fighters in a single request with BATCHED scraping.
+    
+    Flow:
+    1. Collect all usernames per platform across both fighters
+    2. Run ONE Instagram actor with all usernames
+    3. Run ONE Facebook Pages + ONE Facebook Posts actor with all URLs (in parallel)
+    4. Split results back to each fighter
+    5. Generate personas for both fighters in parallel
+    
+    This uses 3 actor instances instead of 6!
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    
+    print(f"[Batch] Creating both fighters with BATCHED scraping...")
+    print(f"[Batch] Fighter 1 URLs: {batch.fighter1_urls}")
+    print(f"[Batch] Fighter 2 URLs: {batch.fighter2_urls}")
+    
+    # Step 1: Route all URLs and collect usernames by platform
+    f1_routed = route_urls(batch.fighter1_urls)
+    f2_routed = route_urls(batch.fighter2_urls)
+    
+    # Collect Instagram usernames
+    ig_usernames = []
+    ig_username_to_fighter = {}  # Maps username -> 'f1' or 'f2'
+    
+    for info in f1_routed.get("instagram", []):
+        ig_usernames.append(info.username)
+        ig_username_to_fighter[info.username] = "f1"
+    for info in f2_routed.get("instagram", []):
+        ig_usernames.append(info.username)
+        ig_username_to_fighter[info.username] = "f2"
+    
+    # Collect Facebook usernames
+    fb_usernames = []
+    fb_username_to_fighter = {}
+    
+    for info in f1_routed.get("facebook", []):
+        fb_usernames.append(info.username)
+        fb_username_to_fighter[info.username] = "f1"
+    for info in f2_routed.get("facebook", []):
+        fb_usernames.append(info.username)
+        fb_username_to_fighter[info.username] = "f2"
+    
+    print(f"[Batch] Instagram usernames: {ig_usernames}")
+    print(f"[Batch] Facebook usernames: {fb_usernames}")
+    
+    # Step 2: Batch scrape all platforms in parallel (3 actors max)
+    ig_results = {}
+    fb_results = {}
+    
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        ig_future = executor.submit(scraper_service.batch_scrape_instagram, ig_usernames) if ig_usernames else None
+        fb_future = executor.submit(scraper_service.batch_scrape_facebook, fb_usernames) if fb_usernames else None
+        
+        if ig_future:
+            ig_results = ig_future.result()
+        if fb_future:
+            fb_results = fb_future.result()
+    
+    print(f"[Batch] Scraping complete. IG: {list(ig_results.keys())}, FB: {list(fb_results.keys())}")
+    
+    # Step 3: Split results back to each fighter
+    f1_data = {}
+    f2_data = {}
+    f1_name = "Digital Twin 1"
+    f2_name = "Digital Twin 2"
+    
+    for username, data in ig_results.items():
+        if ig_username_to_fighter.get(username) == "f1":
+            f1_data["instagram"] = data
+            if f1_name == "Digital Twin 1":
+                f1_name = f"@{username}"
+        else:
+            f2_data["instagram"] = data
+            if f2_name == "Digital Twin 2":
+                f2_name = f"@{username}"
+    
+    for username, data in fb_results.items():
+        if fb_username_to_fighter.get(username) == "f1":
+            f1_data["facebook"] = data
+        else:
+            f2_data["facebook"] = data
+    
+    print(f"[Batch] F1 platforms: {list(f1_data.keys())}, F2 platforms: {list(f2_data.keys())}")
+    
+    # Step 4: Generate personas in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f1_resp_future = executor.submit(_build_fighter_response, f1_data, f1_name)
+        f2_resp_future = executor.submit(_build_fighter_response, f2_data, f2_name)
+        
+        f1_response = f1_resp_future.result()
+        f2_response = f2_resp_future.result()
+    
+    print(f"[Batch] Both fighters created successfully!")
+    
+    return {
+        "fighter1": f1_response,
+        "fighter2": f2_response
     }
 
 @app.post("/api/v1/match/start")
