@@ -8,9 +8,9 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from redis import Redis
 from rq import Queue
-from .services import MultiPlatformScraperService, LLMService, VoiceService, JudgeService
-from .platform_router import detect_platform, route_urls
-from .profiler import ProfileAggregator, PersonaProfiler
+from services import MultiPlatformScraperService, LLMService, VoiceService, JudgeService
+from platform_router import detect_platform, route_urls
+from profiler import ProfileAggregator, PersonaProfiler
 
 load_dotenv(".env.local")
 load_dotenv()
@@ -253,7 +253,7 @@ async def judge_turn(req: JudgeTurnRequest):
         # Check for Critical Hit -> Trigger Background Change
         if damage > 80:
             print(f"Critical Hit! Enqueuing video generation for match {req.match_id}")
-            from .worker import generate_background_video
+            from worker import generate_background_video
             q.enqueue(generate_background_video, f"Burning dojo, pixel art style, intense fire", req.match_id)
 
         return JudgeResponse(
