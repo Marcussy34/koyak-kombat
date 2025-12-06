@@ -104,11 +104,24 @@ export default function Battle() {
 
     // Start BGM on page load
     if (!bgmRef.current) {
-      bgmRef.current = new Audio("/music/retro-battle-music.mp3");
+      bgmRef.current = new Audio("/music/battle music.mp3");
       bgmRef.current.loop = true;
       bgmRef.current.volume = 0.4;
       bgmRef.current.play().catch(e => console.log("BGM autoplay blocked, will play on user interaction"));
     }
+
+    // Add global click listener to unlock audio context
+    const unlockAudio = () => {
+      if (bgmRef.current && bgmRef.current.paused) {
+        bgmRef.current.play().catch(e => console.log("Audio unlock failed", e));
+      }
+      // Remove listener after first interaction
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
+
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
 
     // Cleanup BGM on unmount
     return () => {
@@ -462,53 +475,6 @@ export default function Battle() {
           </div>
         </div>
 
-      {/* Chat Logs Modal */}
-      {showLogs && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl h-[80vh] bg-gray-900/50 rounded-2xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden relative">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #333 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-            
-            {/* Header */}
-            <div className="p-4 bg-gray-900/80 border-b border-gray-800 flex justify-between items-center backdrop-blur-sm z-10">
-              <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Battle Logs</h2>
-              <button 
-                onClick={() => setShowLogs(false)}
-                className="text-gray-400 hover:text-white text-2xl font-bold hover:scale-110 transition-transform"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Logs Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm">
-              {chatHistory.length === 0 ? (
-                <div className="text-center text-gray-500 italic mt-10">No roasts yet...</div>
-              ) : (
-                chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg border-l-4 ${msg.sender === fighter1?.name ? 'bg-blue-900/20 border-blue-500' : 'bg-red-900/20 border-red-500'}`}>
-                    <div className="flex justify-between items-baseline mb-1">
-                      <span className={`font-bold ${msg.sender === fighter1?.name ? 'text-blue-400' : 'text-red-400'}`}>
-                        {msg.sender}
-                      </span>
-                      {msg.damage !== null && (
-                        <span className="text-yellow-500 font-bold">
-                          {msg.damage} DMG {msg.isCritical && '🔥'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-gray-300 leading-relaxed">"{msg.text}"</div>
-                    {msg.speedBonus && (
-                      <div className="text-xs text-green-400 mt-1">Speed Bonus: {msg.speedBonus}</div>
-                    )}
-                  </div>
-                ))
-              )}
-              <div ref={chatEndRef} />
-            </div>
-          </div>
-        </div>
-      )}
         {/* Fighter 2 Health */}
         <div className="flex-1 max-w-md overflow-hidden">
           <div className="flex items-center gap-2 text-xs mb-1 text-red-400 whitespace-nowrap justify-end">
@@ -737,8 +703,8 @@ export default function Battle() {
         </div>
       )}
 
-      {/* View Logs Button - Bottom Right */}
-      <div className="absolute bottom-4 right-4 z-50">
+      {/* View Logs Button - Bottom Right (z-[60] to appear above Game Over) */}
+      <div className="absolute bottom-4 right-4 z-[60]">
         <button 
           onClick={() => setShowLogs(true)}
           className="px-4 py-2 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md rounded border border-gray-600 hover:border-yellow-500 transition-all hover:scale-105 shadow-lg flex items-center gap-2"
@@ -749,6 +715,54 @@ export default function Battle() {
           </span>
         </button>
       </div>
+
+      {/* Chat Logs Modal - z-[200] to appear ABOVE everything including Game Over */}
+      {showLogs && (
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl h-[80vh] bg-gray-900/50 rounded-2xl border border-gray-800 flex flex-col shadow-2xl overflow-hidden relative">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #333 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+            
+            {/* Header */}
+            <div className="p-4 bg-gray-900/80 border-b border-gray-800 flex justify-between items-center backdrop-blur-sm z-10">
+              <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Battle Logs</h2>
+              <button 
+                onClick={() => setShowLogs(false)}
+                className="text-gray-400 hover:text-white text-2xl font-bold hover:scale-110 transition-transform"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Logs Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm">
+              {chatHistory.length === 0 ? (
+                <div className="text-center text-gray-500 italic mt-10">No roasts yet...</div>
+              ) : (
+                chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`p-3 rounded-lg border-l-4 ${msg.sender === fighter1?.name ? 'bg-blue-900/20 border-blue-500' : 'bg-red-900/20 border-red-500'}`}>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className={`font-bold ${msg.sender === fighter1?.name ? 'text-blue-400' : 'text-red-400'}`}>
+                        {msg.sender}
+                      </span>
+                      {msg.damage !== null && (
+                        <span className="text-yellow-500 font-bold">
+                          {msg.damage} DMG {msg.isCritical && '🔥'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-gray-300 leading-relaxed">"{msg.text}"</div>
+                    {msg.speedBonus && (
+                      <div className="text-xs text-green-400 mt-1">Speed Bonus: {msg.speedBonus}</div>
+                    )}
+                  </div>
+                ))
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
