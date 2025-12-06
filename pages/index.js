@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen font-['Press_Start_2P'] text-white flex flex-col relative overflow-hidden">
+    <div className="min-h-screen text-white flex flex-col relative overflow-hidden">
       <Head>
         <title>Koyak Kombat - Insert Coin</title>
       </Head>
@@ -39,12 +39,21 @@ export default function LandingPage() {
           className="mb-8"
         >
           <motion.h1 
-            className="text-5xl md:text-8xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[4px_4px_0_rgba(180,83,9,1)] mb-4 leading-tight"
+            className="text-5xl md:text-8xl mb-4 leading-tight"
             initial={{ y: 20 }}
             animate={{ y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            KOYAK<br/>KOMBAT
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[4px_4px_0_rgba(180,83,9,1)]">
+              KOYAK
+            </span>
+            <br/>
+            <span 
+              className="text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600"
+              style={{ filter: 'drop-shadow(4px 4px 0 rgba(180,83,9,1)) drop-shadow(0 0 15px rgba(234,179,8,0.8))' }}
+            >
+              KOMBAT
+            </span>
           </motion.h1>
           
           <motion.p 
