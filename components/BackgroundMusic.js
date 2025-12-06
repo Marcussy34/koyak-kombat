@@ -99,7 +99,7 @@ export default function BackgroundMusic() {
       {/* Hidden Audio Element */}
       <audio
         ref={audioRef}
-        src="/lobbymusic.mp3"
+        src="/music/lobbymusic.mp3"
         loop
         preload="auto"
       />

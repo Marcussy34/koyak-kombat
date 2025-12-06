@@ -11,11 +11,11 @@ export default function Battle() {
     const gender = fighter.gender?.toLowerCase();
     
     if (side === 'left') {
-      if (gender === 'female') return '/female_leftside.png';
-      if (gender === 'male') return '/male_leftside.png';
+      if (gender === 'female') return '/characters/female_leftside.png';
+      if (gender === 'male') return '/characters/male_leftside.png';
     } else { // right
-      if (gender === 'female') return '/female_rightside.png';
-      if (gender === 'male') return '/male_rightside.png';
+      if (gender === 'female') return '/characters/female_rightside.png';
+      if (gender === 'male') return '/characters/male_rightside.png';
     }
     
     // Fallback to avatar_url or image
@@ -89,7 +89,7 @@ export default function Battle() {
 
     // Start BGM on page load
     if (!bgmRef.current) {
-      bgmRef.current = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
+      bgmRef.current = new Audio("/music/retro-battle-music.mp3");
       bgmRef.current.loop = true;
       bgmRef.current.volume = 0.4;
       bgmRef.current.play().catch(e => console.log("BGM autoplay blocked, will play on user interaction"));
@@ -320,7 +320,7 @@ export default function Battle() {
 
               // Play Victory Music
               if (!victoryAudioRef.current) {
-                victoryAudioRef.current = new Audio("/victorysong.mp3");
+                victoryAudioRef.current = new Audio("/music/victorysong.mp3");
                 victoryAudioRef.current.volume = 0.3; // 50% softer
               }
               victoryAudioRef.current.play().catch(e => console.error("Victory music play failed", e));
@@ -591,7 +591,7 @@ export default function Battle() {
                  alt={fighter2.name} 
                  className={`h-full object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.5)] ${
                    // Only flip if it's NOT one of our static right-side images
-                   !getFighterImage(fighter2, 'right')?.includes('rightside.png') ? 'transform scale-x-[-1]' : ''
+                   !getFighterImage(fighter2, 'right')?.includes('/characters/') ? 'transform scale-x-[-1]' : ''
                  }`}
                  style={{ imageRendering: 'pixelated' }} 
                />
