@@ -232,9 +232,9 @@ export default function CharacterSelect() {
   };
 
   const voices = [
-    { id: 'adam', name: 'Adam (Deep)' },
-    { id: 'charlie', name: 'Charlie (Casual)' },
-    { id: 'bella', name: 'Bella (Soft)' },
+    { id: 'adam', name: 'Brian (Energetic)' },
+    { id: 'charlie', name: 'Daniel (Deep)' },
+    { id: 'bella', name: 'Sarah (Expressive)' },
   ];
 
   const models = [

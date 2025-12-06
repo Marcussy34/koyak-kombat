@@ -106,7 +106,7 @@ export default function Battle() {
     if (!bgmRef.current) {
       bgmRef.current = new Audio("/music/battle music.mp3");
       bgmRef.current.loop = true;
-      bgmRef.current.volume = 0.4;
+      bgmRef.current.volume = 0.15; // Low volume so TTS voice is clear
       bgmRef.current.play().catch(e => console.log("BGM autoplay blocked, will play on user interaction"));
     }
 
@@ -215,6 +215,9 @@ export default function Battle() {
       // Attack vectors are specific embarrassing facts to exploit in roasts
       fighter_1_attack_vectors: fighter1.attack_vectors || [],
       fighter_2_attack_vectors: fighter2.attack_vectors || [],
+      // Voice IDs for ElevenLabs TTS
+      fighter_1_voice_id: fighter1.voiceId || 'adam',
+      fighter_2_voice_id: fighter2.voiceId || 'charlie',
       current_turn: currentTurn
     };
 
@@ -257,6 +260,17 @@ export default function Battle() {
         setDisplayedText('');
         setHighlightedFighter(currentTurn); // Start animation
         setIsStreaming(true);
+        
+        // Play TTS audio if available (alongside text streaming)
+        if (genResponse.audio_url) {
+          try {
+            const ttsAudio = new Audio(genResponse.audio_url);
+            ttsAudio.volume = 1.0; // Full volume for clear voice
+            ttsAudio.play().catch(e => console.log('[TTS] Audio play failed:', e));
+          } catch (e) {
+            console.log('[TTS] Audio error:', e);
+          }
+        }
         
         // Use requestAnimationFrame for smooth 60fps streaming
         await new Promise((resolve) => {

@@ -85,6 +85,9 @@ class MatchTurn(BaseModel):
     # Attack vectors are specific embarrassing facts/weaknesses to exploit
     fighter_1_attack_vectors: List[str] = []
     fighter_2_attack_vectors: List[str] = []
+    # Voice IDs for TTS (ElevenLabs voice names: adam, charlie, bella)
+    fighter_1_voice_id: str = "adam"
+    fighter_2_voice_id: str = "charlie"
     current_turn: str # 'fighter1' or 'fighter2'
 
 class FatalityGenerate(BaseModel):
@@ -472,6 +475,7 @@ async def generate_turn(turn: MatchTurn):
             speaker_persona = turn.fighter_1_persona
             opponent_persona = turn.fighter_2_persona
             opponent_attack_vectors = turn.fighter_2_attack_vectors
+            speaker_voice_id = turn.fighter_1_voice_id
         else:
             speaker_name = turn.fighter_2_name
             opponent_name = turn.fighter_1_name
@@ -479,6 +483,7 @@ async def generate_turn(turn: MatchTurn):
             speaker_persona = turn.fighter_2_persona
             opponent_persona = turn.fighter_1_persona
             opponent_attack_vectors = turn.fighter_1_attack_vectors
+            speaker_voice_id = turn.fighter_2_voice_id
         
         # Format attack vectors as bullet points
         attack_vectors_text = "\n".join([f"- {av}" for av in opponent_attack_vectors]) if opponent_attack_vectors else "- No specific weaknesses known"
@@ -510,9 +515,10 @@ async def generate_turn(turn: MatchTurn):
         
         roast_text = roast_data.get("text", "Error generating roast")
         
-        # 2. Generate Audio
-        # audio_url = voice_service.generate_audio(roast_data["text"], "voice_id_placeholder")
-        audio_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Mock for speed
+        # 2. Generate Audio using ElevenLabs TTS
+        # Returns base64 data URL for direct browser playback
+        audio_url = voice_service.generate_audio(roast_text, speaker_voice_id)
+        print(f"[TTS] Generated audio for {speaker_name} with voice {speaker_voice_id}: {bool(audio_url)}")
 
         return GenerateResponse(
             text=roast_text,

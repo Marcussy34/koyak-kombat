@@ -985,21 +985,73 @@ class JudgeService:
 
 # --- Voice Service (ElevenLabs) ---
 class VoiceService:
+    """
+    Text-to-Speech service using ElevenLabs API.
+    Converts roast text to audio for playback during battles.
+    
+    Voice mapping (expressive voices for roast battles):
+    - adam: Brian - Energetic, expressive American male
+    - charlie: Daniel - Deep, authoritative British male
+    - bella: Sarah - Expressive, dynamic American female
+    """
+    
+    # Map friendly voice names to ElevenLabs voice IDs
+    # Using more expressive voices for emotional roasts
+    VOICE_IDS = {
+        "adam": "nPczCjzI2devNBz1zQrb",      # Brian - Energetic male
+        "charlie": "onwK4e9ZLuTAKqWW03F9",   # Daniel - Deep British male
+        "bella": "EXAVITQu4vr4xnSDxMaL",     # Sarah - Expressive female
+    }
+    
     def __init__(self):
-        self.client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        self.client = ElevenLabs(api_key=api_key) if api_key else None
+        self.has_key = bool(api_key)
+        
+        if not self.has_key:
+            print("[VoiceService] Warning: ELEVENLABS_API_KEY not found")
 
     def generate_audio(self, text: str, voice_id: str) -> str:
         """
-        Generates audio from text and returns a URL (or base64).
+        Generates audio from text and returns base64-encoded MP3 string.
+        
+        Args:
+            text: The roast text to convert to speech
+            voice_id: Voice name (adam, charlie, bella) or actual ElevenLabs voice ID
+            
+        Returns:
+            Base64-encoded MP3 audio string (data URL format), or None if failed
         """
-        if not os.getenv("ELEVENLABS_API_KEY"):
+        if not self.has_key:
+            print("[VoiceService] No API key, skipping TTS generation")
             return None
 
         try:
-            print(f"Generating audio for: {text} with voice {voice_id}")
-            # Mock for now as we need storage to return a URL
-            return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" 
+            # Resolve friendly name to ElevenLabs voice ID
+            actual_voice_id = self.VOICE_IDS.get(voice_id.lower(), voice_id)
+            print(f"[VoiceService] Generating TTS for: '{text[:50]}...' with voice {voice_id} -> {actual_voice_id}")
+            
+            # Generate audio using ElevenLabs SDK
+            # Returns a generator of audio bytes
+            audio_generator = self.client.text_to_speech.convert(
+                voice_id=actual_voice_id,
+                text=text,
+                model_id="eleven_turbo_v2_5",  # Fast, high-quality model
+                output_format="mp3_44100_128",  # MP3 format for web playback
+            )
+            
+            # Collect all audio bytes from generator
+            import base64
+            audio_bytes = b"".join(audio_generator)
+            
+            # Convert to base64 data URL for direct playback in browser
+            audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+            data_url = f"data:audio/mpeg;base64,{audio_base64}"
+            
+            print(f"[VoiceService] Generated {len(audio_bytes)} bytes of audio")
+            return data_url
             
         except Exception as e:
-            print(f"Voice Error: {e}")
+            print(f"[VoiceService] Error: {e}")
             return None
+
