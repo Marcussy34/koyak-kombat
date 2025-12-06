@@ -9,7 +9,7 @@
 
 ## 🎮 What is Koyak Kombat?
 
-**Koyak Kombat** is where players pit hyper-realistic "Digital Twins" against each other in fully autonomous verbal warfare. By simply pasting a social media URL, the system uses **Apify** to scrape a target's digital footprint—mining personality quirks, writing styles, and hidden insecurities—while **ElevenLabs** synthesizes a matching vocal identity using advanced voice design or user-selected presets.
+**Koyak Kombat** is where players pit hyper-realistic "Digital Twins" against each other in fully autonomous verbal warfare. By simply pasting a social media URL, the system uses **SocialData.tools** (for Twitter) and **Apify** (for Instagram/LinkedIn) to scrape a target's digital footprint—mining personality quirks, writing styles, and hidden insecurities—while **ElevenLabs** synthesizes a matching vocal identity using advanced voice design or user-selected presets.
 
 This data spawns a fighter that **thinks, speaks, and roasts exactly like the target**, allowing users to orchestrate a terrifyingly accurate simulation of an argument between any two personas—from tech moguls to their own friends.
 
@@ -30,7 +30,7 @@ The game is wrapped in a nostalgic **"Street Fighter" aesthetic** where the visu
 | Feature | Status |
 | :--- | :---: |
 | **AI-Powered Roasts** (OpenRouter: Gemini, GPT-4o, Llama, Mistral) | ✅ |
-| **Digital Twin Generation** (Apify Twitter Scraping) | ✅ |
+| **Digital Twin Generation** (SocialData.tools + Apify Multi-Platform) | ✅ |
 | **Retro Arcade Aesthetic** (16-bit pixel art, CRT effects) | ✅ |
 | **Multi-Model Combat** (Pit different AI models against each other) | ✅ |
 | **Performance Stats** (Real-time latency & generation time) | ✅ |
@@ -51,7 +51,7 @@ The game is wrapped in a nostalgic **"Street Fighter" aesthetic** where the visu
 | **Frontend** | Next.js, React, Tailwind CSS, Shadcn UI |
 | **Backend** | FastAPI (Python) |
 | **AI/LLM** | OpenRouter (Gemini, GPT-4o, Llama, Mistral, Claude) |
-| **Scraping** | Apify (Twitter/X Profile Scraper) |
+| **Scraping** | SocialData.tools (Twitter), Apify (Instagram/LinkedIn) |
 | **Voice** | ElevenLabs *(Planned)* |
 | **Video** | Google Vertex AI *(Planned)* |
 | **Queue** | Redis (RQ) |
@@ -65,7 +65,7 @@ The game is wrapped in a nostalgic **"Street Fighter" aesthetic** where the visu
 
 *   Node.js 18+
 *   Python 3.10+
-*   API Keys: `OPENROUTER_API_KEY`, `APIFY_API_TOKEN`
+*   API Keys: `OPENROUTER_API_KEY`, `SOCIALDATA_API_KEY`, `APIFY_API_TOKEN` (optional)
 
 ### 1. Clone & Install
 
@@ -84,12 +84,23 @@ pip install -r requirements.txt
 
 ### 2. Configure Environment
 
-Create a `.env.local` file in the root:
+Create a `.env.local` file in the `backend/` directory:
 
 ```env
+# Required for AI model inference
 OPENROUTER_API_KEY=sk-or-...
+
+# Required for Twitter scraping
+SOCIALDATA_API_KEY=your_socialdata_key
+
+# Optional: For Instagram and LinkedIn scraping
 APIFY_API_TOKEN=apify_api_...
+
+# Optional: For voice synthesis
+ELEVENLABS_API_KEY=sk_...
 ```
+
+> **Note**: See `backend/SOCIALDATA_INTEGRATION.md` for detailed setup instructions.
 
 ### 3. Run the App
 
@@ -112,7 +123,9 @@ Open [http://localhost:3000](http://localhost:3000) and enter the arena!
 
 *   [x] Next.js & FastAPI foundation
 *   [x] OpenRouter LLM integration
-*   [x] Apify Twitter scraping
+*   [x] SocialData.tools Twitter scraping (replaces Apify for Twitter)
+*   [x] Apify Instagram & LinkedIn scraping
+*   [x] Multi-platform persona generation (Twitter + Instagram + LinkedIn)
 *   [x] Retro battle UI (split-screen, health bars, speech bubbles)
 *   [x] Turn-based combat with damage scaling
 *   [x] Multi-model selection for each fighter
