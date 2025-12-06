@@ -672,26 +672,71 @@ class LLMService:
         """
         Generates a roast based on the persona and conversation history.
         Returns JSON: { "text": "..." } - NO damage scoring (Judge AI handles that)
+        
+        ANTI-REPETITION SYSTEM:
+        - Extracts topics/keywords from previous roasts
+        - Passes "EXHAUSTED TOPICS" list to the AI
+        - Forces AI to attack from a completely fresh angle each turn
         """
         # Use full history to prevent repetition
         history_text = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in chat_history])
+        
+        # === ANTI-REPETITION: Extract topics already attacked ===
+        # This helps the AI know what angles have been "used up"
+        exhausted_topics = []
+        for msg in chat_history:
+            text = msg.get('text', '').lower()
+            # Extract key nouns/topics (simple keyword extraction)
+            # These become "banned" topics for future roasts
+            keywords = [
+                word.strip('.,!?"\'') 
+                for word in text.split() 
+                if len(word) > 4 and word.isalpha()
+            ]
+            exhausted_topics.extend(keywords[:5])  # Top 5 keywords per turn
+        
+        # Dedupe and format
+        exhausted_topics = list(set(exhausted_topics))[:20]  # Max 20 exhausted topics
+        exhausted_text = ", ".join(exhausted_topics) if exhausted_topics else "None yet"
+        
+        # Calculate turn number for variety nudges
+        turn_number = len([m for m in chat_history if m.get('speaker') == opponent_name]) + 1
+        
+        # Variety prompts based on turn number
+        variety_hints = [
+            "Attack their APPEARANCE or LIFESTYLE.",
+            "Attack their RELATIONSHIPS or SOCIAL STATUS.",
+            "Attack their CAREER or ACHIEVEMENTS (or lack thereof).",
+            "Attack their PERSONALITY FLAWS or HYPOCRISY.",
+            "Attack their ONLINE PRESENCE or CRINGEY CONTENT.",
+        ]
+        current_hint = variety_hints[(turn_number - 1) % len(variety_hints)]
         
         prompt = f"""
         {system_prompt}
         
         CONTEXT:
         You are in a high-stakes roast battle against {opponent_name}.
-        Current Match History:
-        {history_text}
+        This is YOUR TURN #{turn_number}.
         
-        INSTRUCTIONS:
-        1. Adopt your persona completely. Use your specific slang, insecurities, and writing style.
-        2. Attack the opponent based on the "TARGET" info provided above. Be hyper-specific about their known traits.
-        3. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
-        4. Humor is key. Make the audience laugh while destroying the opponent.
-        5. DO NOT REPEAT any topics, insults, or punchlines already used in the Match History. Be original.
-        6. If you repeat a previous roast, you will be PENALIZED by the Judge AI.
+        MATCH HISTORY:
+        {history_text if history_text else "No previous roasts yet."}
+        
+        === EXHAUSTED TOPICS (DO NOT MENTION THESE AGAIN) ===
+        {exhausted_text}
+        
+        === ATTACK DIRECTION FOR THIS TURN ===
+        {current_hint}
+        
+        STRICT INSTRUCTIONS:
+        1. Adopt your persona completely. Use your specific slang and writing style.
+        2. Your roast MUST attack from a COMPLETELY NEW ANGLE.
+        3. DO NOT reference any word or topic from EXHAUSTED TOPICS above.
+        4. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
+        5. Be HYPER-SPECIFIC. Reference real facts about the opponent.
+        6. Humor is key. Make the audience laugh while destroying the opponent.
         7. DO NOT USE EMOJIS.
+        8. PENALTY: Repeating ANY topic from previous roasts = automatic 0 damage.
         
         Return JSON format ONLY:
         {{
@@ -783,24 +828,34 @@ class JudgeService:
         PREVIOUS MATCH HISTORY (CHECK FOR REPEATS):
         {history_text}
         
+        === REPETITION CHECK (DO THIS FIRST) ===
+        Before scoring, check if this roast uses the SAME TOPIC, SAME ANGLE, or SAME KEYWORDS as any previous roast.
+        Examples of repetition:
+        - Mentioning "bike" again if it was already attacked
+        - Attacking "candid photos" if already mentioned
+        - Using the same punchline pattern as before
+        
+        If repetition is detected: ALL SCORES MUST BE PENALIZED (max 20 for each category).
+        
         SCORE THE ROAST ON THESE CRITERIA (0-100 each):
         
         1. SPECIFICITY (30% weight): How personal is the attack?
            - Generic insults like "you're ugly" = 0-30
            - Mentions specific traits about the target = 40-70
            - Deeply personal, hyper-specific attacks = 80-100
+           - **PENALTY**: If repeating a previous topic, max score is 20.
         
         2. CREATIVITY (30% weight): Is this a unique burn or a cliché?
            - Common insults/overused jokes = 0-30
            - Clever wordplay or unexpected angles = 40-70
            - Brilliant, never-heard-before burns = 80-100
-           - **CRITICAL PENALTY**: If the roast repeats a topic or punchline from the PREVIOUS MATCH HISTORY, Creativity MUST be 0.
-
+           - **PENALTY**: If repeating a previous topic or punchline, max score is 0.
         
         3. ACCURACY (40% weight): Does it reference REAL content from the target's profile?
            - No connection to known facts = 0-30
            - Loosely related to their profile = 40-70
            - Directly attacks known facts/weaknesses = 80-100
+           - **PENALTY**: If repeating same fact, max score is 20.
         
         Calculate FINAL DAMAGE as: (Specificity × 0.3) + (Creativity × 0.3) + (Accuracy × 0.4)
         

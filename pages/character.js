@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -37,9 +37,15 @@ export default function CharacterSelect() {
   const [loadingStep, setLoadingStep] = useState('');
   const [loadingSteps, setLoadingSteps] = useState([]);
 
-  // Modal state
   const [modalMessage, setModalMessage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Auto-scroll logs
+  const logsEndRef = useRef(null);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [loadingSteps]);
 
   // Show modal helper
   const showModal = (message) => {
@@ -439,6 +445,7 @@ export default function CharacterSelect() {
                   <span className={i === loadingSteps.length - 1 ? 'text-yellow-400' : ''}>{s.step}</span>
                 </div>
               ))}
+              <div ref={logsEndRef} />
             </div>
 
             {/* Decorative Elements */}

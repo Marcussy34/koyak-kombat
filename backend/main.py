@@ -433,7 +433,7 @@ async def generate_turn(turn: MatchTurn):
         {attack_vectors_text}
 
         CONSTRAINT:
-        Keep the roast under 30 words. This is a strict limit.
+        Keep the roast under 20 words. This is a strict limit.
         Reference at least ONE specific attack vector above.
         """
         
