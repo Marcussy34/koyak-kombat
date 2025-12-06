@@ -990,12 +990,14 @@ class VoiceService:
     Text-to-Speech service using ElevenLabs API.
     Converts roast text to audio for playback during battles.
     
-    Voice mapping (5 expressive voices for roast battles):
+    Voice mapping (7 expressive voices for roast battles):
     - adam: Brian - Energetic American male
     - charlie: Josh - Deep, young male (fast)
     - bella: Sarah - Expressive American female
     - clyde: Clyde - War veteran, aggressive male
     - rachel: Rachel - Confident, assertive female
+    - mal_male: Chris - Fast, casual American male
+    - mal_female: Grace - Malaysian/Commonwealth Female
     """
     
     # Map friendly voice names to ElevenLabs voice IDs
@@ -1006,6 +1008,8 @@ class VoiceService:
         "bella": "EXAVITQu4vr4xnSDxMaL",     # Sarah - Expressive female
         "clyde": "2EiwWnXFnvU5JabPnv8n",    # Clyde - War veteran, aggressive
         "rachel": "21m00Tcm4TlvDq8ikWAM",   # Rachel - Confident female
+        "mal_male": "iP95p4xoKVk53GoZ742B",  # Chris - Fast, casual American
+        "mal_female": "oWAxZDx7w5VEj9dCyTzz", # Grace - Malaysian/Commonwealth Female
     }
     
     def __init__(self):

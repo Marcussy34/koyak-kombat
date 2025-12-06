@@ -107,7 +107,7 @@ export default function Battle() {
     if (!bgmRef.current) {
       bgmRef.current = new Audio("/music/battle music.mp3");
       bgmRef.current.loop = true;
-      bgmRef.current.volume = 0.15; // Low volume so TTS voice is clear
+      bgmRef.current.volume = 0.4; // Start at normal volume
       bgmRef.current.play().catch(e => console.log("BGM autoplay blocked, will play on user interaction"));
     }
 
@@ -136,6 +136,19 @@ export default function Battle() {
       }
     };
   }, []);
+
+  // Dynamic BGM Volume Control - lower when AI is thinking/speaking/judging
+  useEffect(() => {
+    if (bgmRef.current) {
+      if (isGenerating || isStreaming || isJudging) {
+        // Lower volume when thinking, speaking, or judging
+        bgmRef.current.volume = 0.15;
+      } else {
+        // Normal volume when idle
+        bgmRef.current.volume = 0.4;
+      }
+    }
+  }, [isGenerating, isStreaming, isJudging]);
 
   const handleStartFight = async () => {
     // Guard: prevent starting if not ready or already fighting
@@ -255,7 +268,7 @@ export default function Battle() {
         setChatHistory(prev => [...prev, tempMsg]);
 
         // STREAM THE ROAST TEXT (4 seconds total) - Smooth RAF-based streaming
-        const fullText = genResponse.text;
+        const fullText = genResponse.text || '[No response received]';
         const streamDuration = 4000; // 4 seconds for better sync with audio
         
         setDisplayedText('');
@@ -301,13 +314,12 @@ export default function Battle() {
           requestAnimationFrame(animate);
         });
         
+        // STEP 2: Judge AI Thinking Phase - set BEFORE streaming ends to prevent volume spike
+        setIsJudging(true);
         setIsStreaming(false);
         
-        // Brief pause after streaming completes before judging
+        // Brief pause after streaming completes before showing judge UI
         await new Promise(r => setTimeout(r, 500));
-
-        // STEP 2: Judge AI Thinking Phase
-        setIsJudging(true);
 
         // Call Judge AI
         const judgePayload = {
@@ -582,13 +594,13 @@ export default function Battle() {
             </div>
           )}
 
-          {/* Avatar */}
+          {/* Avatar with idle animation */}
           <div className={`relative w-full h-full max-h-[75vh] flex items-end justify-center translate-y-12 ${damageOverlay?.target === 'fighter1' ? 'animate-shake' : ''}`}>
              {fighter1 && (
                <img 
                  src={getFighterImage(fighter1, 'left')} 
                  alt={fighter1.name} 
-                 className="h-full object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]"
+                 className="h-full object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] animate-idle-bob"
                  style={{ imageRendering: 'pixelated' }} 
                />
              )}
@@ -639,17 +651,17 @@ export default function Battle() {
             </div>
           )}
 
-          {/* Avatar */}
+          {/* Avatar with idle animation */}
           <div className={`relative w-full h-full max-h-[75vh] flex items-end justify-center translate-y-12 ${damageOverlay?.target === 'fighter2' ? 'animate-shake' : ''}`}>
              {fighter2 && (
                <img 
                  src={getFighterImage(fighter2, 'right')} 
                  alt={fighter2.name} 
-                 className={`h-full object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.5)] ${
+                 className={`h-full object-contain drop-shadow-[0_0_20px_rgba(239,68,68,0.5)] animate-idle-bob ${
                    // Only flip if it's NOT one of our static right-side images
                    !getFighterImage(fighter2, 'right')?.includes('/characters/') ? 'transform scale-x-[-1]' : ''
                  }`}
-                 style={{ imageRendering: 'pixelated' }} 
+                 style={{ imageRendering: 'pixelated', animationDelay: '0.5s' }} 
                />
              )}
           </div>

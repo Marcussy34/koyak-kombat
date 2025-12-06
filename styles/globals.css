@@ -130,3 +130,17 @@
     font-family: "Press Start 2P", cursive !important;
   }
 }
+
+/* Fighter idle animation - subtle bob for life-like feel */
+@keyframes idle-bob {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-idle-bob {
+  animation: idle-bob 2s ease-in-out infinite;
+}

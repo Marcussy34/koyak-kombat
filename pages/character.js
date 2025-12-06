@@ -237,6 +237,8 @@ export default function CharacterSelect() {
     { id: 'bella', name: 'Sarah (Expressive)' },
     { id: 'clyde', name: 'Clyde (Aggressive)' },
     { id: 'rachel', name: 'Rachel (Confident)' },
+    { id: 'mal_male', name: 'Chris (Fast Paced)' },
+    { id: 'mal_female', name: 'Grace (Malaysian Female)' },
   ];
 
   const models = [
