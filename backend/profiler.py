@@ -35,6 +35,7 @@ class FighterPersona:
     psychological_insecurities: list[str]   # Weak points to exploit in roasts
     worldview: Worldview
     attack_vectors: list[str]               # Specific embarrassing facts/events
+    gender: str                             # "male", "female", or "non-binary"
     system_prompt: str                      # Ready-to-use prompt for roast battles
 
 
@@ -177,6 +178,58 @@ class ProfileAggregator:
         
         return "LINKEDIN PROFILE:\n" + "\n".join(parts) if parts else "No LinkedIn data available."
     
+    @staticmethod
+    def normalize_facebook(raw_data: dict) -> str:
+        """
+        Normalize Facebook scraper output.
+        Expected fields from combined page info + posts:
+        - name, about, likes, followers (from pages scraper)
+        - posts[] with text/message, likes, shares, comments (from posts scraper)
+        """
+        if not raw_data:
+            return "No Facebook data available."
+        
+        parts = []
+        
+        # Page info
+        name = raw_data.get("name", raw_data.get("title", ""))
+        about = raw_data.get("about", raw_data.get("description", ""))
+        likes = raw_data.get("likes", raw_data.get("likesCount", 0))
+        followers = raw_data.get("followers", raw_data.get("followersCount", 0))
+        website = raw_data.get("website", "")
+        category = raw_data.get("category", "")
+        
+        if name:
+            parts.append(f"Name: {name}")
+        if category:
+            parts.append(f"Category: {category}")
+        if about:
+            parts.append(f"About: {about[:500]}")  # Truncate long descriptions
+        if likes or followers:
+            parts.append(f"Engagement: {likes:,} Likes, {followers:,} Followers")
+        if website:
+            parts.append(f"Website: {website}")
+        
+        # Recent posts
+        posts = raw_data.get("posts", [])
+        if posts and isinstance(posts, list):
+            post_parts = []
+            for post in posts[:10]:  # Max 10 posts
+                # Posts scraper returns 'text' or 'message' field
+                text = post.get("text", post.get("message", post.get("postText", "")))
+                likes = post.get("likes", post.get("likesCount", 0))
+                shares = post.get("shares", post.get("sharesCount", 0))
+                comments = post.get("comments", post.get("commentsCount", 0))
+                
+                if text:
+                    engagement = f"({likes} likes, {shares} shares, {comments} comments)"
+                    post_parts.append(f"Post: {text[:300]} {engagement}")
+            
+            if post_parts:
+                parts.append("RECENT POSTS:\n" + "\n---\n".join(post_parts))
+        
+        return "FACEBOOK PROFILE:\n" + "\n".join(parts) if parts else "No Facebook data available."
+    
     @classmethod
     def aggregate(cls, platform_data: dict[str, any]) -> str:
         """
@@ -198,6 +251,9 @@ class ProfileAggregator:
         
         if "linkedin" in platform_data and platform_data["linkedin"]:
             sections.append(cls.normalize_linkedin(platform_data["linkedin"]))
+        
+        if "facebook" in platform_data and platform_data["facebook"]:
+            sections.append(cls.normalize_facebook(platform_data["facebook"]))
         
         if not sections:
             return "No social media data available for this person."
@@ -241,6 +297,7 @@ INSTRUCTIONS:
 2. Find PSYCHOLOGICAL INSECURITIES: things they're defensive about, contradictions, failures
 3. Understand their WORLDVIEW: what they believe, and where those beliefs contradict their actions
 4. List specific ATTACK VECTORS: embarrassing moments, hypocrisies, meme-able quotes
+5. Deduce their GENDER: "male", "female", or "non-binary"
 
 Return JSON format ONLY:
 {{
@@ -262,6 +319,7 @@ Return JSON format ONLY:
         "specific embarrassing fact or event 1",
         "specific embarrassing fact or event 2"
     ],
+    "gender": "male/female/non-binary",
     "system_prompt": "You are [name]. You speak like... You believe... Your weaknesses are... When roasted, you deflect by..."
 }}
 """
@@ -302,6 +360,7 @@ Return JSON format ONLY:
                     contradictions=data.get("worldview", {}).get("contradictions", [])
                 ),
                 attack_vectors=data.get("attack_vectors", []),
+                gender=data.get("gender", "unknown"),
                 system_prompt=data.get("system_prompt", f"You are {target_name}.")
             )
             
@@ -321,6 +380,7 @@ Return JSON format ONLY:
                     contradictions=["Unknown contradictions"]
                 ),
                 attack_vectors=["No specific attack vectors found"],
+                gender="unknown",
                 system_prompt=f"You are {target_name}. You are a generic roast fighter."
             )
     
@@ -339,5 +399,6 @@ Return JSON format ONLY:
                 "contradictions": persona.worldview.contradictions
             },
             "attack_vectors": persona.attack_vectors,
+            "gender": persona.gender,
             "system_prompt": persona.system_prompt
         }

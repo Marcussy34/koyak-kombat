@@ -35,6 +35,13 @@ PLATFORM_PATTERNS = {
         r"(?:https?://)?(?:www\.)?linkedin\.com/in/([a-zA-Z0-9_-]+)(?:/.*)?$",
         re.IGNORECASE
     ),
+    
+    # Facebook: matches facebook.com/username or facebook.com/profile.php?id=123
+    # Captures username from path or ID from query string
+    "facebook": re.compile(
+        r"(?:https?://)?(?:www\.)?facebook\.com/(?:profile\.php\?id=(\d+)|([a-zA-Z0-9.]+))(?:/.*)?$",
+        re.IGNORECASE
+    ),
 }
 
 
@@ -66,10 +73,18 @@ def detect_platform(url: str) -> PlatformInfo:
     for platform, pattern in PLATFORM_PATTERNS.items():
         match = pattern.match(url)
         if match:
-            username = match.group(1)
+            # Facebook has two capture groups: (profile_id, username)
+            # One will be None, the other will have the value
+            if platform == "facebook":
+                profile_id = match.group(1)  # From profile.php?id=123
+                username = match.group(2)    # From /username path
+                extracted = profile_id or username
+            else:
+                extracted = match.group(1)
+            
             return PlatformInfo(
                 platform=platform,
-                username=username,
+                username=extracted,
                 original_url=url
             )
     

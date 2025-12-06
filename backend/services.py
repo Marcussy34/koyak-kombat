@@ -106,10 +106,11 @@ class SocialDataService:
 # Lightweight Apify actors with low maxItems for cost efficiency (~$0.01-0.02/fighter)
 class MultiPlatformScraperService:
     """
-    Scrapes Twitter, Instagram, and LinkedIn using different services:
+    Scrapes Twitter, Instagram, LinkedIn, and Facebook using different services:
     - Twitter: SocialData.tools API (more reliable)
     - Instagram: Apify actor (apify/instagram-profile-scraper)
     - LinkedIn: Apify actor (curious_coder/linkedin-profile-scraper)
+    - Facebook: Apify actors (apify/facebook-pages-scraper + apify/facebook-posts-scraper)
     Configured with low maxItems limits to minimize costs.
     """
     
@@ -119,13 +120,18 @@ class MultiPlatformScraperService:
     ACTORS = {
         "instagram": "apify/instagram-profile-scraper",   # No browser, fast
         "linkedin": "curious_coder/linkedin-profile-scraper",  # No cookies required
+        "facebook_pages": "apify/facebook-pages-scraper",  # Page info, likes, followers
+        "facebook_posts": "apify/facebook-posts-scraper",  # Recent posts with engagement
     }
     
     # Low maxItems limits to control costs
+    # Facebook: ~$6.60/1,000 pages, so we limit posts to 10
     MAX_ITEMS = {
         "twitter": 15,    # Latest 15 tweets
         "instagram": 10,  # Latest 10 posts + profile
         "linkedin": 1,    # Single profile (includes experience)
+        "facebook_pages": 1,   # Single page profile
+        "facebook_posts": 10,  # Latest 10 posts for persona context
     }
     
     # Hardcoded fallbacks for famous people (bypass Apify during testing)
@@ -221,6 +227,7 @@ class MultiPlatformScraperService:
                 # Return raw profile data (wrapped in list for compatibility)
                 formatted_data = self.socialdata.format_profile_for_profiler(profile)
                 print(f"[Twitter] Got profile data for @{username}")
+                print(f"[Twitter] Raw response: {json.dumps(profile, indent=2, default=str)}")
                 return formatted_data
             else:
                 print(f"[Twitter] Could not fetch profile for @{username}, using mock data")
@@ -263,7 +270,9 @@ class MultiPlatformScraperService:
             items = self.client.dataset(run["defaultDatasetId"]).list_items().items
             
             # Instagram scraper returns profile as first item
-            return items[0] if items else {}
+            result = items[0] if items else {}
+            print(f"[Instagram] Raw response: {json.dumps(result, indent=2, default=str)[:2000]}...")  # Truncate for readability
+            return result
             
         except Exception as e:
             print(f"[Instagram] Error: {e}")
@@ -295,11 +304,87 @@ class MultiPlatformScraperService:
             run = self.client.actor(self.ACTORS["linkedin"]).call(run_input=run_input)
             items = self.client.dataset(run["defaultDatasetId"]).list_items().items
             
-            return items[0] if items else {}
+            result = items[0] if items else {}
+            print(f"[LinkedIn] Raw response: {json.dumps(result, indent=2, default=str)[:2000]}...")  # Truncate for readability
+            return result
             
         except Exception as e:
             print(f"[LinkedIn] Error: {e}")
             return {"summary": f"Error scraping {username}.", "positions": []}
+    
+    def scrape_facebook(self, username: str) -> dict:
+        """
+        Scrape Facebook page info + recent posts.
+        Combines both Apify actors for comprehensive persona data.
+        
+        Args:
+            username: Facebook page name or profile ID
+            
+        Returns:
+            Dict with page info + posts array
+        """
+        print(f"[Facebook] Scraping {username}...")
+        
+        if not self.has_token:
+            print("[Facebook] No APIFY_API_TOKEN, returning mock data")
+            return {
+                "name": username.replace(".", " ").title(),
+                "about": f"Mock Facebook profile for {username}.",
+                "likes": 10000,
+                "followers": 5000,
+                "posts": [{"text": "Mock post content. Living my best life! 🔥", "likes": 100}]
+            }
+        
+        fb_url = f"https://www.facebook.com/{username}"
+        result = {
+            "page_info": {},
+            "posts": []
+        }
+        
+        # Step 1: Get page info (name, about, likes, followers)
+        try:
+            print(f"[Facebook] Fetching page info for {username}...")
+            page_input = {
+                "startUrls": [{"url": fb_url}],
+            }
+            
+            run = self.client.actor(self.ACTORS["facebook_pages"]).call(run_input=page_input)
+            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+            
+            if items:
+                result["page_info"] = items[0]
+                print(f"[Facebook] Got page info: {items[0].get('name', 'Unknown')}")
+                print(f"[Facebook] Page info raw: {json.dumps(items[0], indent=2, default=str)[:1500]}...")
+        except Exception as e:
+            print(f"[Facebook] Error fetching page info: {e}")
+        
+        # Step 2: Get recent posts (text, engagement)
+        try:
+            print(f"[Facebook] Fetching recent posts for {username}...")
+            posts_input = {
+                "startUrls": [{"url": fb_url}],
+                "resultsLimit": self.MAX_ITEMS["facebook_posts"],
+            }
+            
+            run = self.client.actor(self.ACTORS["facebook_posts"]).call(run_input=posts_input)
+            items = self.client.dataset(run["defaultDatasetId"]).list_items().items
+            
+            if items:
+                result["posts"] = items
+                print(f"[Facebook] Got {len(items)} posts")
+                # Log first post as sample
+                if len(items) > 0:
+                    print(f"[Facebook] Sample post: {json.dumps(items[0], indent=2, default=str)[:1000]}...")
+        except Exception as e:
+            print(f"[Facebook] Error fetching posts: {e}")
+        
+        # Combine into single profile object for aggregator
+        combined = {
+            **result["page_info"],
+            "posts": result["posts"]
+        }
+        
+        return combined if (result["page_info"] or result["posts"]) else {}
     
     def scrape_platform(self, platform: str, username: str) -> any:
         """
@@ -318,6 +403,8 @@ class MultiPlatformScraperService:
             return self.scrape_instagram(username)
         elif platform == "linkedin":
             return self.scrape_linkedin(username)
+        elif platform == "facebook":
+            return self.scrape_facebook(username)
         else:
             print(f"[Scraper] Unknown platform: {platform}")
             return None

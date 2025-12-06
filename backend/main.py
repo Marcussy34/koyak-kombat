@@ -157,6 +157,7 @@ async def create_fighter(fighter: FighterCreate):
         "psychological_insecurities": persona_dict["psychological_insecurities"],
         "worldview": persona_dict["worldview"],
         "attack_vectors": persona_dict["attack_vectors"],
+        "gender": persona_dict["gender"],
         "platforms_scraped": list(platform_data.keys())
     }
 
