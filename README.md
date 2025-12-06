@@ -50,7 +50,6 @@
 | **Battle Screenshot Capture** (For video generation) | ✅ |
 | **Batch Fighter Creation** (Parallel scraping for both fighters) | ✅ |
 | **Finishing Move Video** (Veo 3 generation) | ✅ |
-| **Match Persistence** | 🔮 |
 
 ---
 
