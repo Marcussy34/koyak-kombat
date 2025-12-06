@@ -11,6 +11,10 @@
 
 **Koyak Kombat** is an AI-powered roast battle arena where players pit **Digital Twins** against each other in fully autonomous verbal warfare. By pasting social media URLs (Twitter, Instagram, LinkedIn, Facebook), the system scrapes the target's digital footprint—mining personality quirks, writing styles, and hidden insecurities—then spawns a fighter that **thinks, speaks, and roasts exactly like them**.
 
+<p align="center">
+  <img src="public/landingpage.png" alt="Koyak Kombat Landing Page" width="800"/>
+</p>
+
 ### The Experience
 
 1. **Spawn Your Fighters:** Paste up to 3 social media URLs per fighter. The AI scrapes, analyzes, and generates persona-accurate Digital Twins.
@@ -18,6 +22,10 @@
 3. **Select Your Arena:** Pick from 6 themed battle backgrounds.
 4. **Watch the Carnage:** The match erupts into real-time verbal warfare with streaming roasts, TTS audio, and an independent AI Judge scoring damage.
 5. **Draw Your Fatality:** The winner sketches a finishing move, analyzed by AI and rendered into video.
+
+<p align="center">
+  <img src="public/gameplayverdict.png" alt="Battle with AI Judge Verdict" width="800"/>
+</p>
 
 ---
 
@@ -41,9 +49,8 @@
 | **AI Drawing Analysis** (Intent detection from sketches) | ✅ |
 | **Battle Screenshot Capture** (For video generation) | ✅ |
 | **Batch Fighter Creation** (Parallel scraping for both fighters) | ✅ |
-| **Finishing Move Video** (Veo 3 generation) | 🚧 |
-| **Match Persistence** (Supabase integration) | 🔮 |
-| **Leaderboards** | 🔮 |
+| **Finishing Move Video** (Veo 3 generation) | ✅ |
+| **Match Persistence** | 🔮 |
 
 ---
 
@@ -57,8 +64,8 @@
 | **AI Judge** | GPT-5 Mini via OpenRouter |
 | **Scraping** | SocialData.tools (Twitter), Apify (Instagram, LinkedIn, Facebook) |
 | **Voice** | ElevenLabs (7 voice presets, Turbo v2.5) |
-| **Video** | Google Vertex AI / Veo 3 *(In Progress)* |
-| **Queue** | Redis (RQ) |
+| **Video** | Google Vertex AI / Veo 3 |
+| **Queue** | Redis (RQ) *(Planned)* |
 | **UI Components** | Shadcn UI, Lucide Icons |
 
 ---
@@ -107,9 +114,10 @@ APIFY_API_TOKEN=apify_api_...
 # Required for voice synthesis
 ELEVENLABS_API_KEY=sk_...
 
-# Optional: For video generation
+# Required for video generation (Veo 3)
 VERTEX_AI_PROJECT=your-gcp-project
 VERTEX_AI_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=path/to/vertex-ai-key.json
 ```
 
 > **Note**: See `backend/SOCIALDATA_INTEGRATION.md` for detailed API setup instructions.
@@ -188,51 +196,6 @@ koyak-kombat/
 └── styles/
     └── globals.css           # Tailwind + custom styles
 ```
-
----
-
-## 🗺️ Roadmap
-
-### ✅ Phase 1: Core Battle System (Complete)
-
-* [x] Next.js & FastAPI foundation
-* [x] OpenRouter + Groq LLM integration
-* [x] Multi-platform scraping (Twitter, Instagram, LinkedIn, Facebook)
-* [x] AI Persona Profiler with structured output
-* [x] Independent AI Judge with scoring breakdown
-* [x] Anti-repetition system
-* [x] Retro battle UI with health bars and speech bubbles
-* [x] Streamed roast text with typewriter effect
-* [x] Round system with roulette animation
-* [x] Arena selection (6 backgrounds)
-
-### ✅ Phase 2: Audio & Voice (Complete)
-
-* [x] ElevenLabs TTS integration
-* [x] 7 voice presets per fighter
-* [x] Real-time audio playback during roasts
-* [x] Dynamic BGM volume (lower during speech/judging)
-
-### ✅ Phase 3: Finishing Move (Complete)
-
-* [x] tldraw canvas for drawing
-* [x] AI analysis of drawing intent
-* [x] "FINISH HIM/HER!" intro animation
-* [x] 30-second countdown timer
-* [x] Battle screenshot capture
-
-### 🚧 Phase 4: Video Generation (In Progress)
-
-* [ ] Veo 3 video rendering
-* [ ] Highlight reel generation
-* [ ] Social media sharing
-
-### 🔮 Phase 5: Persistence & Polish (Planned)
-
-* [ ] Supabase match history
-* [ ] Fighter profiles & stats
-* [ ] Mobile optimization
-* [ ] Leaderboards
 
 ---
 

@@ -2,7 +2,6 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-supabase
 google-generativeai
 groq
 elevenlabs
