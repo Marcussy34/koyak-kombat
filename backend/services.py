@@ -456,7 +456,8 @@ class LLMService:
         Generates a roast based on the persona and conversation history.
         Returns JSON: { "text": "..." } - NO damage scoring (Judge AI handles that)
         """
-        history_text = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in chat_history[-5:]])
+        # Use full history to prevent repetition
+        history_text = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in chat_history])
         
         prompt = f"""
         {system_prompt}
@@ -471,6 +472,7 @@ class LLMService:
         2. Attack the opponent based on the "TARGET" info provided above. Be hyper-specific about their known traits.
         3. Respond with a short, brutal, and FUNNY roast (max 2 sentences).
         4. Humor is key. Make the audience laugh while destroying the opponent.
+        5. DO NOT REPEAT any topics, insults, or punchlines already used in the Match History. Be original.
         
         Return JSON format ONLY:
         {{

@@ -325,6 +325,7 @@ Return JSON format ONLY:
 """
         
         try:
+            print(f"[Profiler] Prompt content:\n{prompt}")
             print(f"[Profiler] Sending request to LLM ({self.model})...")
             response = self.client.chat.completions.create(
                 model=self.model,
