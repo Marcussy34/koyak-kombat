@@ -238,10 +238,11 @@ export default function CharacterSelect() {
   ];
 
   const models = [
-    // Free Models
-    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Free)' },
-    { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B (Free)' },
+    // Groq Models (Free, Fast)
+    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B (Groq Free)' },
+    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Groq Free)' },
+    // OpenRouter Free Models
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (OpenRouter Free)' },
     { id: 'nousresearch/hermes-3-llama-3.1-405b:free', name: 'Hermes 3 405B (Free)' },
     // Cheap Paid Models
     { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini ($)' },

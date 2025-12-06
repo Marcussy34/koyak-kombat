@@ -2,6 +2,7 @@ import os
 import json
 import requests
 from openai import OpenAI
+from groq import Groq
 from apify_client import ApifyClient
 from elevenlabs.client import ElevenLabs
 from dotenv import load_dotenv
@@ -683,15 +684,57 @@ class MultiPlatformScraperService:
 # Legacy alias for backward compatibility
 ApifyService = MultiPlatformScraperService
 
-# --- LLM Service (OpenRouter) ---
+# --- LLM Service (OpenRouter + Groq) ---
 class LLMService:
+    # Groq model prefixes - these will be routed to Groq API
+    GROQ_MODELS = [
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "llama3-8b-8192",
+        "llama3-70b-8192",
+        "mixtral-8x7b-32768",
+    ]
+    
     def __init__(self):
-        self.client = OpenAI(
+        # OpenRouter client (default)
+        self.openrouter_client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=os.getenv("OPENROUTER_API_KEY", "missing_key"),
         )
-        # Default to a good model, e.g., Llama 3 or Gemini Pro via OpenRouter
-        self.model = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001") 
+        
+        # Groq client (for Groq models)
+        groq_key = os.getenv("GROQ_API_KEY")
+        self.groq_client = Groq(api_key=groq_key) if groq_key else None
+        
+        # Default model
+        self.model = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+    
+    def _is_groq_model(self, model_name: str) -> bool:
+        """Check if model should be routed to Groq API."""
+        if not model_name:
+            return False
+        return any(groq_model in model_name for groq_model in self.GROQ_MODELS)
+    
+    def _get_client_and_model(self, model_name: str):
+        """Get the appropriate client and clean model name."""
+        is_groq = self._is_groq_model(model_name)
+        has_client = self.groq_client is not None
+        
+        print(f"[LLMService] Routing model: {model_name} | Is Groq: {is_groq} | Has Groq Client: {has_client}")
+        
+        if is_groq:
+            if self.groq_client:
+                # Strip any prefix for Groq
+                clean_model = model_name.replace("groq/", "")
+                print(f"[LLMService] Using Direct Groq API with model: {clean_model}")
+                return self.groq_client, clean_model
+            else:
+                print(f"[LLMService] WARNING: Groq model requested but no GROQ_API_KEY found. Falling back to OpenRouter.")
+                # If falling back to OpenRouter, ensure it has the groq/ prefix if needed
+                # But for now, let's just return what we have and let it fail (or succeed if OpenRouter handles it)
+                return self.openrouter_client, model_name
+        else:
+            return self.openrouter_client, model_name 
 
     def generate_persona(self, scrape_data: str) -> str:
         """
@@ -709,7 +752,7 @@ class LLMService:
         """
         
         try:
-            response = self.client.chat.completions.create(
+            response = self.openrouter_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert profiler."},
@@ -775,18 +818,19 @@ class LLMService:
         Return JSON: {{"text": "Your roast"}}
         """
         
-        # Use the requested model or fall back to default
+        # Get the appropriate client based on model
         target_model = model_name if model_name else self.model
+        client, clean_model = self._get_client_and_model(target_model)
         
         try:
             # Higher temperature (0.9) for more creative variety
-            response = self.client.chat.completions.create(
-                model=target_model,
+            response = client.chat.completions.create(
+                model=clean_model,
                 messages=[
                     {"role": "system", "content": "You are a savage roast battle expert. Output JSON only. NEVER repeat previous attacks."},
                     {"role": "user", "content": prompt}
                 ],
-                response_format={ "type": "json_object" },
+                response_format={"type": "json_object"},
                 temperature=0.9  # Higher temp for more variety
             )
             content = response.choices[0].message.content
@@ -868,7 +912,7 @@ class JudgeService:
         - Attacking "candid photos" if already mentioned
         - Using the same punchline pattern as before
         
-        If repetition is detected: ALL SCORES MUST BE PENALIZED (max 20 for each category).
+        If repetition is detected: Set "is_repetition" to true.
         
         SCORE THE ROAST ON THESE CRITERIA (0-100 each):
         
@@ -876,24 +920,22 @@ class JudgeService:
            - Generic insults like "you're ugly" = 0-30
            - Mentions specific traits about the target = 40-70
            - Deeply personal, hyper-specific attacks = 80-100
-           - **PENALTY**: If repeating a previous topic, max score is 20.
         
         2. CREATIVITY (30% weight): Is this a unique burn or a cliché?
            - Common insults/overused jokes = 0-30
            - Clever wordplay or unexpected angles = 40-70
            - Brilliant, never-heard-before burns = 80-100
-           - **PENALTY**: If repeating a previous topic or punchline, max score is 0.
         
         3. ACCURACY (40% weight): Does it reference REAL content from the target's profile?
            - No connection to known facts = 0-30
            - Loosely related to their profile = 40-70
            - Directly attacks known facts/weaknesses = 80-100
-           - **PENALTY**: If repeating same fact, max score is 20.
         
         Calculate FINAL DAMAGE as: (Specificity × 0.3) + (Creativity × 0.3) + (Accuracy × 0.4)
         
         Return JSON ONLY:
         {{
+            "is_repetition": <boolean>,
             "specificity": <score>,
             "creativity": <score>,
             "accuracy": <score>,
@@ -915,8 +957,14 @@ class JudgeService:
             print(f"[Judge AI] Raw Response: {content}")
             data = json.loads(content)
             
-            # Ensure damage is calculated correctly
-            if "damage" not in data:
+            # STRICT PENALTY: If repetition is detected, force damage to 0
+            if data.get("is_repetition", False):
+                print(f"[Judge AI] Repetition detected! Forcing damage to 0.")
+                data["damage"] = 0
+                data["reasoning"] = f"REPETITION DETECTED. {data.get('reasoning', '')}"
+            
+            # Ensure damage is calculated correctly if not already present
+            elif "damage" not in data:
                 specificity = data.get("specificity", 50)
                 creativity = data.get("creativity", 50)
                 accuracy = data.get("accuracy", 50)
