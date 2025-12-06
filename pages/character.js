@@ -566,6 +566,7 @@ export default function CharacterSelect() {
               Koyak Kombat
             </Link>
             <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
+              <Link href="/character" className="text-yellow-400">Fighters</Link>
               <Link href="/about" className="hover:text-white hover:underline">About</Link>
             </div>
           </nav>

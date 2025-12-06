@@ -33,7 +33,7 @@ export default function AboutPage() {
           Koyak Kombat
         </Link>
         <div className="flex space-x-6 text-[10px] md:text-xs text-gray-300">
-          <Link href="/character" className="hover:text-white hover:underline">Start Battle</Link>
+          <Link href="/character" className="hover:text-white hover:underline">Fighters</Link>
           <Link href="/about" className="text-yellow-400">About</Link>
         </div>
       </nav>
