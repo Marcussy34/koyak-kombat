@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+supabase
+google-generativeai
+groq
+elevenlabs
+apify-client
+redis
+openai
+rq

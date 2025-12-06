@@ -1,0 +1,332 @@
+"""
+Profiler: Cross-platform aggregation and persona synthesis.
+Combines data from multiple social platforms into a structured Fighter Persona.
+"""
+import json
+from typing import Optional
+from dataclasses import dataclass, asdict
+from openai import OpenAI
+import os
+
+
+@dataclass
+class SpeechPatterns:
+    """How the person talks."""
+    vocabulary: list[str]           # Common words/phrases they use
+    sentence_structure: str         # e.g., "short, punchy" or "long, formal"
+    tone: str                       # e.g., "sarcastic, dismissive"
+
+
+@dataclass
+class Worldview:
+    """What the person believes."""
+    core_beliefs: list[str]         # Main beliefs/values
+    contradictions: list[str]       # Inconsistencies in their views (attack vectors)
+
+
+@dataclass
+class FighterPersona:
+    """
+    Structured output for fighter persona.
+    This is the final output used as the fighter's system prompt.
+    """
+    name: str
+    speech_patterns: SpeechPatterns
+    psychological_insecurities: list[str]   # Weak points to exploit in roasts
+    worldview: Worldview
+    attack_vectors: list[str]               # Specific embarrassing facts/events
+    system_prompt: str                      # Ready-to-use prompt for roast battles
+
+
+class ProfileAggregator:
+    """
+    Middleware that normalizes raw scraper outputs into a unified context block.
+    Handles different JSON structures from Twitter, Instagram, LinkedIn.
+    """
+    
+    @staticmethod
+    def normalize_twitter(raw_data: list[dict]) -> str:
+        """
+        Normalize Twitter scraper output.
+        Handles multiple field name formats from different Apify actors.
+        """
+        if not raw_data:
+            return "No Twitter data available."
+        
+        # Debug: print first item's keys to see actual field names
+        if raw_data:
+            print(f"[DEBUG] Twitter data keys: {list(raw_data[0].keys())[:10]}")
+        
+        posts = []
+        for tweet in raw_data[:15]:  # Limit to 15 tweets
+            # Try multiple possible field names for tweet text
+            text = (
+                tweet.get("text") or 
+                tweet.get("full_text") or 
+                tweet.get("fullText") or
+                tweet.get("content") or
+                tweet.get("tweet") or
+                ""
+            )
+            
+            # Try multiple possible field names for likes
+            likes = (
+                tweet.get("likeCount") or 
+                tweet.get("favorite_count") or 
+                tweet.get("favorites") or
+                tweet.get("likes") or
+                0
+            )
+            
+            # Try multiple possible field names for retweets  
+            retweets = (
+                tweet.get("retweetCount") or 
+                tweet.get("retweet_count") or 
+                tweet.get("retweets") or
+                0
+            )
+            
+            if text:
+                posts.append(f"Tweet ({likes} likes, {retweets} RTs): {text}")
+        
+        result = "TWITTER POSTS:\n" + "\n---\n".join(posts) if posts else "No Twitter data available."
+        print(f"[DEBUG] Normalized {len(posts)} tweets, total length: {len(result)}")
+        return result
+    
+    @staticmethod
+    def normalize_instagram(raw_data: dict) -> str:
+        """
+        Normalize Instagram scraper output.
+        Expected fields: biography, fullName, postsCount, followersCount, posts
+        """
+        if not raw_data:
+            return "No Instagram data available."
+        
+        parts = []
+        
+        # Profile info
+        bio = raw_data.get("biography", "")
+        name = raw_data.get("fullName", raw_data.get("full_name", ""))
+        followers = raw_data.get("followersCount", raw_data.get("edge_followed_by", {}).get("count", 0))
+        
+        if name:
+            parts.append(f"Name: {name}")
+        if bio:
+            parts.append(f"Bio: {bio}")
+        if followers:
+            parts.append(f"Followers: {followers:,}")
+        
+        # Recent posts/captions
+        posts = raw_data.get("posts", raw_data.get("latestPosts", []))
+        if posts and isinstance(posts, list):
+            captions = []
+            for post in posts[:10]:
+                caption = post.get("caption", post.get("edge_media_to_caption", {}).get("edges", [{}])[0].get("node", {}).get("text", ""))
+                if caption:
+                    captions.append(caption[:200])  # Truncate long captions
+            if captions:
+                parts.append("RECENT CAPTIONS:\n" + "\n---\n".join(captions))
+        
+        return "INSTAGRAM PROFILE:\n" + "\n".join(parts) if parts else "No Instagram data available."
+    
+    @staticmethod
+    def normalize_linkedin(raw_data: dict) -> str:
+        """
+        Normalize LinkedIn scraper output.
+        Expected fields: firstName, lastName, headline, summary, positions
+        """
+        if not raw_data:
+            return "No LinkedIn data available."
+        
+        parts = []
+        
+        # Basic info
+        first = raw_data.get("firstName", "")
+        last = raw_data.get("lastName", "")
+        if first or last:
+            parts.append(f"Name: {first} {last}".strip())
+        
+        headline = raw_data.get("headline", "")
+        if headline:
+            parts.append(f"Headline: {headline}")
+        
+        summary = raw_data.get("summary", raw_data.get("about", ""))
+        if summary:
+            parts.append(f"About: {summary[:500]}")  # Truncate
+        
+        # Work experience
+        positions = raw_data.get("positions", raw_data.get("experience", []))
+        if positions and isinstance(positions, list):
+            exp_parts = []
+            for pos in positions[:5]:
+                title = pos.get("title", "")
+                company = pos.get("companyName", pos.get("company", ""))
+                if title or company:
+                    exp_parts.append(f"- {title} at {company}")
+            if exp_parts:
+                parts.append("EXPERIENCE:\n" + "\n".join(exp_parts))
+        
+        return "LINKEDIN PROFILE:\n" + "\n".join(parts) if parts else "No LinkedIn data available."
+    
+    @classmethod
+    def aggregate(cls, platform_data: dict[str, any]) -> str:
+        """
+        Combine data from all platforms into a single context block.
+        
+        Args:
+            platform_data: Dict mapping platform names to their raw scraper output
+            
+        Returns:
+            Unified text block for the Profiler LLM
+        """
+        sections = []
+        
+        if "twitter" in platform_data and platform_data["twitter"]:
+            sections.append(cls.normalize_twitter(platform_data["twitter"]))
+        
+        if "instagram" in platform_data and platform_data["instagram"]:
+            sections.append(cls.normalize_instagram(platform_data["instagram"]))
+        
+        if "linkedin" in platform_data and platform_data["linkedin"]:
+            sections.append(cls.normalize_linkedin(platform_data["linkedin"]))
+        
+        if not sections:
+            return "No social media data available for this person."
+        
+        return "\n\n========================================\n\n".join(sections)
+
+
+class PersonaProfiler:
+    """
+    Uses LLM to synthesize cross-platform data into a structured Fighter Persona.
+    """
+    
+    def __init__(self):
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.getenv("OPENROUTER_API_KEY", "missing_key"),
+        )
+        # Use GPT-4o-mini for persona synthesis (cheap but effective)
+        self.model = os.getenv("PROFILER_MODEL", "openai/gpt-4o-mini")
+    
+    def generate_persona(self, aggregated_data: str, target_name: str = "Unknown") -> FighterPersona:
+        """
+        Analyze cross-platform data and generate a structured Fighter Persona.
+        
+        Args:
+            aggregated_data: Combined data from ProfileAggregator
+            target_name: Name of the person (for the persona)
+            
+        Returns:
+            FighterPersona object ready for roast battles
+        """
+        prompt = f"""
+You are an expert psychological profiler and comedy writer.
+Analyze the following social media data for {target_name} and create a "Digital Twin" persona for a roast battle game.
+
+SOCIAL MEDIA DATA:
+{aggregated_data}
+
+INSTRUCTIONS:
+1. Identify their SPEECH PATTERNS: vocabulary, sentence structure, tone
+2. Find PSYCHOLOGICAL INSECURITIES: things they're defensive about, contradictions, failures
+3. Understand their WORLDVIEW: what they believe, and where those beliefs contradict their actions
+4. List specific ATTACK VECTORS: embarrassing moments, hypocrisies, meme-able quotes
+
+Return JSON format ONLY:
+{{
+    "name": "Their name",
+    "speech_patterns": {{
+        "vocabulary": ["word1", "word2", "phrase1"],
+        "sentence_structure": "description of how they write",
+        "tone": "description of their tone"
+    }},
+    "psychological_insecurities": [
+        "insecurity 1 with specific example",
+        "insecurity 2 with specific example"
+    ],
+    "worldview": {{
+        "core_beliefs": ["belief 1", "belief 2"],
+        "contradictions": ["contradiction 1", "contradiction 2"]
+    }},
+    "attack_vectors": [
+        "specific embarrassing fact or event 1",
+        "specific embarrassing fact or event 2"
+    ],
+    "system_prompt": "You are [name]. You speak like... You believe... Your weaknesses are... When roasted, you deflect by..."
+}}
+"""
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a psychological profiler. Output valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            content = response.choices[0].message.content
+            data = json.loads(content)
+            
+            # Handle case where LLM returns a list instead of dict
+            if isinstance(data, list):
+                if len(data) > 0 and isinstance(data[0], dict):
+                    data = data[0]
+                else:
+                    raise ValueError("LLM returned empty or invalid list")
+            
+            # Parse into structured dataclass
+            return FighterPersona(
+                name=data.get("name", target_name),
+                speech_patterns=SpeechPatterns(
+                    vocabulary=data.get("speech_patterns", {}).get("vocabulary", []),
+                    sentence_structure=data.get("speech_patterns", {}).get("sentence_structure", ""),
+                    tone=data.get("speech_patterns", {}).get("tone", "")
+                ),
+                psychological_insecurities=data.get("psychological_insecurities", []),
+                worldview=Worldview(
+                    core_beliefs=data.get("worldview", {}).get("core_beliefs", []),
+                    contradictions=data.get("worldview", {}).get("contradictions", [])
+                ),
+                attack_vectors=data.get("attack_vectors", []),
+                system_prompt=data.get("system_prompt", f"You are {target_name}.")
+            )
+            
+        except Exception as e:
+            print(f"Profiler Error: {e}")
+            # Return fallback persona
+            return FighterPersona(
+                name=target_name,
+                speech_patterns=SpeechPatterns(
+                    vocabulary=["generic"],
+                    sentence_structure="standard",
+                    tone="neutral"
+                ),
+                psychological_insecurities=["Unknown weaknesses"],
+                worldview=Worldview(
+                    core_beliefs=["Unknown beliefs"],
+                    contradictions=["Unknown contradictions"]
+                ),
+                attack_vectors=["No specific attack vectors found"],
+                system_prompt=f"You are {target_name}. You are a generic roast fighter."
+            )
+    
+    def persona_to_dict(self, persona: FighterPersona) -> dict:
+        """Convert FighterPersona to JSON-serializable dict."""
+        return {
+            "name": persona.name,
+            "speech_patterns": {
+                "vocabulary": persona.speech_patterns.vocabulary,
+                "sentence_structure": persona.speech_patterns.sentence_structure,
+                "tone": persona.speech_patterns.tone
+            },
+            "psychological_insecurities": persona.psychological_insecurities,
+            "worldview": {
+                "core_beliefs": persona.worldview.core_beliefs,
+                "contradictions": persona.worldview.contradictions
+            },
+            "attack_vectors": persona.attack_vectors,
+            "system_prompt": persona.system_prompt
+        }
