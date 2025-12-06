@@ -187,6 +187,48 @@ sequenceDiagram
     FE->>FE: Check health → Game Over or Next Turn
 ```
 
+### Finishing Move Sequence
+
+When a fighter's health reaches 0, the winner gets to draw a finishing move:
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant Draw as tldraw Canvas
+    participant Analyze as /api/analyze-finishing-move
+    participant Sanitize as GPT-4o-mini
+    participant Video as /api/generate-finishing-video
+    participant Veo as Veo 3 (Vertex AI)
+
+    Note over FE: K.O. Detected!
+    FE->>FE: Capture battle screenshot
+    FE->>Draw: Show finishing move canvas
+    
+    Note over Draw: Winner sketches fatality
+    Draw-->>FE: Canvas image (PNG)
+    
+    FE->>Analyze: POST sketch + winner/loser names
+    Note right of Analyze: Uses GPT-4o Vision
+    Analyze->>Analyze: Analyze sketch intent
+    Analyze-->>FE: {intent, description, style, damage_modifier}
+    Note right of FE: e.g. "FLYING KICK", "aerial attack"
+    
+    FE->>Video: POST screenshot + intent + description
+    
+    Video->>Sanitize: Sanitize prompt
+    Note right of Sanitize: Remove brutal language
+    Note right of Sanitize: Keep action (kicks, K.O.)
+    Sanitize-->>Video: Safe arcade-style prompt
+    
+    Video->>Veo: Generate 6s video
+    Note right of Veo: Image-to-video with prompt
+    Veo-->>Video: Video (base64 or GCS URI)
+    
+    Video-->>FE: {videoUrl}
+    FE->>FE: Play finishing move video
+    FE->>FE: Show GAME OVER + Winner
+```
+
 ---
 
 ## 🎮 Gameplay Mechanics
