@@ -31,6 +31,32 @@ export default function FinishingMoveDrawer({ winner, loser, battleScreenshot, o
   const [generationProgress, setGenerationProgress] = useState('');
   const editorRef = useRef(null);
   const videoRef = useRef(null);
+  const drawingAudioRef = useRef(null);
+
+  // Start Drawing Music on mount (only once)
+  useEffect(() => {
+    // Create and start audio only once
+    drawingAudioRef.current = new Audio('/music/drawingmusic.mp3');
+    drawingAudioRef.current.loop = true;
+    drawingAudioRef.current.volume = 0.5;
+    drawingAudioRef.current.play().catch(e => console.error('[FinishingMoveDrawer] Music play failed:', e));
+
+    // Cleanup on unmount
+    return () => {
+      if (drawingAudioRef.current) {
+        drawingAudioRef.current.pause();
+        drawingAudioRef.current = null;
+      }
+    };
+  }, []); // Empty dependency - only runs once on mount
+
+  // Stop music when video starts playing
+  useEffect(() => {
+    if (phase === 'playing' && drawingAudioRef.current) {
+      drawingAudioRef.current.pause();
+      drawingAudioRef.current = null;
+    }
+  }, [phase]);
 
   // Intro animation - show "FINISH HIM/HER!" for 2 seconds
   useEffect(() => {
@@ -181,10 +207,15 @@ export default function FinishingMoveDrawer({ winner, loser, battleScreenshot, o
               return; // Wait for video to finish playing
             }
           } else {
-            console.error('[FinishingMoveDrawer] Video generation failed');
+            // Video generation failed - show a brief message then continue
+            console.error('[FinishingMoveDrawer] Video generation failed, continuing to game over');
+            setGenerationProgress('Video unavailable - continuing...');
+            await new Promise(r => setTimeout(r, 2000)); // Brief pause
           }
         } catch (videoError) {
           console.error('[FinishingMoveDrawer] Video error:', videoError);
+          setGenerationProgress('Video unavailable - continuing...');
+          await new Promise(r => setTimeout(r, 2000)); // Brief pause
         }
       }
       
@@ -297,6 +328,66 @@ export default function FinishingMoveDrawer({ winner, loser, battleScreenshot, o
             <div className="w-4 h-4 bg-yellow-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
             <div className="w-4 h-4 bg-yellow-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
           </div>
+        </div>
+      )}
+
+      {/* GENERATING PHASE */}
+      {phase === 'generating' && (
+        <div className="flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="text-3xl md:text-5xl text-red-500 font-black uppercase tracking-widest text-center drop-shadow-[0_0_30px_rgba(239,68,68,0.8)] animate-pulse">
+            GENERATING...
+          </div>
+          <div className="mt-4 text-2xl text-yellow-500 font-bold">
+            {analysisResult?.intent || 'FINISHING MOVE'}
+          </div>
+          <div className="mt-4 text-sm text-gray-400 uppercase tracking-widest text-center max-w-md">
+            {analysisResult?.description || 'Rendering your ultimate attack...'}
+          </div>
+          <div className="mt-8 text-xs text-gray-500 uppercase tracking-widest">
+            {generationProgress || 'Veo 3 is generating your video...'}
+          </div>
+          {/* Loading animation */}
+          <div className="mt-6 w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 animate-pulse" 
+                 style={{width: '100%', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite linear'}}></div>
+          </div>
+        </div>
+      )}
+
+      {/* PLAYING PHASE - Video Playback */}
+      {phase === 'playing' && videoUrl && (
+        <div className="w-full h-full flex flex-col items-center justify-center animate-in zoom-in duration-500">
+          <div className="text-2xl text-yellow-500 font-black uppercase tracking-widest mb-4 drop-shadow-[0_0_20px_rgba(234,179,8,0.8)]">
+            {analysisResult?.intent || 'FINISHING MOVE'}
+          </div>
+          
+          {/* Video Player */}
+          <div className="relative w-full max-w-4xl aspect-video border-4 border-white/40 rounded-lg overflow-hidden shadow-[0_0_50px_rgba(239,68,68,0.5)]">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              autoPlay
+              loop
+              muted={false}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error('[FinishingMoveDrawer] Video playback error:', e);
+                if (onComplete) {
+                  onComplete(analysisResult);
+                }
+              }}
+            />
+          </div>
+
+          {/* Skip button */}
+          <button
+            onClick={() => {
+              if (onComplete) onComplete(analysisResult);
+            }}
+            className="mt-6 px-6 py-3 bg-gray-800 hover:bg-gray-700 border-2 border-white/30 text-white text-xs uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+          >
+            Skip Video
+          </button>
         </div>
       )}
     </div>
