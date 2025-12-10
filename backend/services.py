@@ -814,7 +814,8 @@ class LLMService:
         2. Avoid topics listed above.
         3. MAX 20 WORDS. Be savage.
         4. NO EMOJIS.
-        5. DO NOT roast follower counts - too generic.
+        5. DO NOT roast follower counts OR engagement metrics (likes, views, retweets) - it's boring and weak.
+        6. NEVER use the same roast, punchline, or angle twice. Be unique every turn.
         
         Return JSON: {{"text": "Your roast"}}
         """

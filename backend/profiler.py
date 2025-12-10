@@ -225,7 +225,7 @@ class ProfileAggregator:
                 if text:
                     # Clean up text (remove excessive newlines)
                     text = " ".join(text.split())[:300] + "..." if len(text) > 300 else " ".join(text.split())
-                    post_parts.append(f"- \"{text}\" ({likes} likes, {comments} comments)")
+                    post_parts.append(f"- \"{text}\"")
             
             if post_parts:
                 parts.append("RECENT POSTS:\n" + "\n".join(post_parts))
@@ -358,6 +358,7 @@ INSTRUCTIONS:
    - It must explicitly define their writing style with examples.
    - It must be long enough to give the Fighter LLM deep context (at least 500 words).
    - **CONSTRAINT**: The system prompt must explicitly instruct the persona to NOT use emojis.
+   - **CONSTRAINT**: Do NOT include follower counts, likes, or engagement metrics as attack vectors or knowledge base items. Focus on content and personality.
 
 Return JSON format ONLY:
 {{

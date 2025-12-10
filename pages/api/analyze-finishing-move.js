@@ -37,7 +37,7 @@ export default async function handler(req, res) {
         'X-Title': 'Koyak Kombat - Finishing Move Analyzer',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini', // Vision-capable, cheap, fast
+        model: 'openai/gpt-4o', // More powerful vision model
         messages: [
           {
             role: 'system',
@@ -45,9 +45,16 @@ export default async function handler(req, res) {
 
 Analyze the drawing and return a JSON object with these fields:
 - intent: A short 2-4 word name for the finishing move (e.g., "HADOUKEN BLAST", "SPINNING KICK", "FIRE TORNADO")
-- description: A dramatic 1-sentence description of what the move does, written like an arcade announcer
+- description: A dramatic 1-sentence description of what the move does, written like an arcade announcer.
 - style: The attack type - one of: "energy", "physical", "fire", "ice", "lightning", "psychic", "combo", "unknown"
 - damage_modifier: A number from 1.0 to 2.0 based on how creative/clear the drawing is (1.0 = unclear, 2.0 = amazing)
+
+SAFETY FILTERS (CRITICAL):
+1. Describe the action in STYLIZED ARCADE GAME terms, not realistic violence.
+2. DO NOT use words like: blood, gore, kill, murder, death, brutal, savage, torture, decapitate.
+3. Use words like: defeat, knockout, blast, strike, slam, finish, victory.
+4. If the drawing depicts extreme violence, reinterpret it as a "cartoonish" or "energy-based" attack.
+5. The goal is a T-rated arcade game description, not an R-rated movie.
 
 ONLY respond with valid JSON, no markdown or explanation.`
           },

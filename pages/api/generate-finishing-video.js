@@ -232,9 +232,9 @@ Output: "Mario performs a dramatic flying kick in classic arcade style. Luigi is
     console.log('[GenerateFinishingVideo] Veo response:', JSON.stringify(data, null, 2));
 
     // The response contains an operation name for long-running operation
-    const operationName = data.name;
+    let currentOperationName = data.name;
     
-    if (!operationName) {
+    if (!currentOperationName) {
       // If we got a direct result (unlikely for video)
       if (data.predictions?.[0]?.video?.bytesBase64Encoded) {
         const videoBase64 = data.predictions[0].video.bytesBase64Encoded;
@@ -266,7 +266,7 @@ Output: "Mario performs a dramatic flying kick in classic arcade style. Luigi is
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          operationName: operationName,
+          operationName: currentOperationName,
         }),
       });
 
@@ -278,9 +278,61 @@ Output: "Mario performs a dramatic flying kick in classic arcade style. Luigi is
       const pollData = await pollResponse.json();
 
       if (pollData.done) {
-        if (pollData.error) {
-          console.error('[GenerateFinishingVideo] Operation failed:', pollData.error);
-          return res.status(500).json({ error: 'Video generation failed', details: pollData.error });
+        // Check for RAI filtering (Content Safety)
+        if (pollData.response?.raiMediaFilteredCount > 0) {
+          console.warn('[GenerateFinishingVideo] Request blocked by content filters:', pollData.response.raiMediaFilteredReasons);
+          
+          // RETRY LOGIC: If blocked, try a super-safe "Victory Celebration" prompt
+          // This ensures we always get SOMETHING back
+          if (!requestBody.isRetry) {
+            console.log('[GenerateFinishingVideo] Retrying with safe fallback prompt...');
+            const safePrompt = `Retro arcade game victory screen. ${winner} is celebrating a win with a happy victory pose. Pixel art style, colorful, confetti, fireworks. No violence, just celebration.`;
+            
+            const retryBody = {
+              ...requestBody,
+              instances: [{
+                prompt: safePrompt,
+                image: requestBody.instances[0].image
+              }],
+              isRetry: true // Custom flag to prevent infinite loops
+            };
+            
+            // Trigger new generation
+            const retryResponse = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken.token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(retryBody),
+            });
+            
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              // Update operationName to poll the NEW operation
+              if (retryData.name) {
+                console.log('[GenerateFinishingVideo] Retry operation started:', retryData.name);
+                // Recursively call polling for the new operation (or just update loop variables)
+                // Simpler: just update operationName and continue the loop
+                // But we need to reset attempts? Let's just update operationName and let it ride
+                // We might run out of attempts if we don't reset, but 90 is a lot.
+                
+                // Better approach: Return a recursive call to a helper function, but we are inside the handler.
+                // Let's just update the operationName and continue polling.
+                // We need to handle the fact that the loop continues.
+                
+                // Actually, simpler to just throw an error here and let the client handle it? 
+                // No, we want to fix it transparently.
+                
+                // Let's restart the polling loop with the new operation name
+                currentOperationName = retryData.name;
+                attempts = 0; // Reset attempts for the retry
+                continue;
+              }
+            }
+          }
+          
+          throw new Error(`Video generation blocked by safety filters: ${pollData.response.raiMediaFilteredReasons?.[0] || 'Unknown reason'}`);
         }
 
         // Extract video from response - check multiple possible locations
